@@ -1,0 +1,63 @@
+Small Tools Revision History
+
+-- included in version 1.1
+
+--- edt changes
+ 1. Do not abort run on error loading file named in command line.
+ 2. Rename original file to .$$$ extension before writing it anew.
+    Delete .$$$ file if successful.
+ 3. Add "z" command to "zip" through the buffer from the current line
+    until interrupted by any input.
+ 4. Abort iterative commands on ESC from console.
+    Abort "print" and "zip" commands on any input.
+
+--- fmt changes
+ 5. add .bf command for boldface.
+ 6. add -bs# switch for number of boldface strikes.
+ 7. add -s switch to show source files.
+ 8. use switch statement.
+ 9. fix bug causing the printing of pages with only a heading/footing.
+10. add EPSON mode for underlines and boldface.
+    -bs# switch is effective only in TTY mode.
+11. add -t switch to set TTY mode.
+12  add .it command for italics in EPSON mode.
+13. add -i switch to substitute italics for underlines.
+14. add -u switch to substitute underlines for italics.
+15. make boldface also double strike.
+16. enhance italics.
+17. use "switch" in comtyp()
+18. keep bold/italics/underline out of headings/footers.
+19. don't obscure blank lines with .ul, .bf, .it.
+20. prevent blank pages on .bp at last line of a page.
+21. add -nr switch to negate "ready printer..." prompt.
+22. make ".mp #" algorithm wait # lines before forcing another page break.
+23. make -ec# print multiple copies even w/o mergefile.
+24. add ".dw #" command for nontty mode double wide print.
+
+--- lst changes
+25. allow bare filename in leu of redirection spec for stdin in the
+    command line.
+
+--- mrg changes
+26. Merge based on a lexicographical ordering rather than the straight
+    ASCII colating sequence.
+
+--- prt changes
+27. Force output to LST: unless stdout is redirected away from the console.
+
+--- srt changes
+28. unless specified otherwise with the -t switch, temporary files go to
+    the default drive.
+
+-- included in version 1.2
+
+--- fmt changes
+29. subscript from // to \\ or white space, and
+    superscript from \\ to // or white space.
+
+--- srt changes
+30. fix improper closing of temp files.
+31. make duptest() check -u switch instead of assuming it is set.
+32. fix potential problem in merge() if input temp file is null.
+33. fix test for escape from merge loop.
+

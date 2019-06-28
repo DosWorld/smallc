@@ -1,0 +1,58 @@
+                    Small Assembler Revision History
+
+ -- included in version 1.1
+
+  1 Pad location counter in listing with leading zeroes.
+  2 Add 80186, 80286, and 80386 instructions to instruction set.
+  3 Add 8087, 80287, and 80387 instructions to instruction set.
+  4 Add support for floating point and packed decimal constants in 
+    DD, DQ, and DT directives.
+
+ -- included in version 1.2
+
+  5 Revise DUMP to perform formatted dumps of object libraries too.  At this
+    stage the directory at the end of a library is still not yet formatted.
+  6 A forward reference in a PUBLIC directive to a PROC caused the 
+    referenced PROC to generate a "Redundant Definition" error.  Also, 
+    subsequent forward references to the same PROC generated "Bad 
+    Expression" errors.
+  7 Made PROCs report "Phase Error" messages as labels do.
+  8 Dropped EXT.H in favor of individually naming external references in files
+    ASM2.C, ASM3.C, and ASM4.C.  This reduces the number of global symbols in
+    each file so as to avoid overflowing the global symbol table in Small C.
+
+  - Tried making the assembler run faster by skipping the MIT lookups on pass
+    2.  The MIT subscript and opnds[] values resulting from pass 1 were 
+    written to an intermediate file which was read during pass 2 instead of
+    performing the complicated MIT lookups and mappings.  The result was no
+    measurable improvement in speed.  Replacing the file with an array also
+    failed to produce a speed improvement.  This effort was an attempt to get
+    some of the advantages of using intermediate code without having to 
+    rewrite major portions of the assembler.  I abandoned the idea after its
+    dismal showing, however.
+
+  9 Revised ASMCAL.BAT to correctly name the assembler's own library file,
+    ASM.LIB, in the link step.  Also changed the assembly step to invoke ASM
+    instead of MASM.  Also revised READ.ME comments about ASMCAL.BAT to better 
+    describe its operation and to warn you to run CMIT to create the first 
+    80X86.OBJ file.
+
+ 10 Corrected a problem that caused ASM to generate a FIXUPP record with the
+    FIX386 code following the first LEDATA record in the object file, if the
+    LEDATA record overflowed.  This prevented ASM's being able to properly
+    assemble ASM2.  Also made ASM properly toggle between FIXUPP and FIX386
+    records when the ASO prefix changes the default address size attribute.
+
+ 11 Corrected a problem which caused ASM not to recognize instructions with
+    memory-only operands if the reference is indirect.
+
+ 12 Revised function dosegment(), in file ASM2.C, to detect when a segment
+    or class name redefines another symbol.  A "Redundant Definition" error
+    is generated in these cases. 
+
+ 13 Revised function dogroup(), in file ASM2.C, to recognize forward 
+    references to segments.
+
+ 14 MASM takes a segment-override prefix to imply a memory reference; thus,
+    it sees ES:63H as though it were ES:[63H].  ASM now does the same, rather
+    than generate "- Segment Error."

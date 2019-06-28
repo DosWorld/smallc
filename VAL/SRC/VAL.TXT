@@ -1,0 +1,103 @@
+This file contains VAL, the experimental linker presented at SDC '89.
+To get help on the switches, enter the command:
+
+         val /help
+
+The file val.hlp must be located in the same directory as the file val.exe.
+
+This program is released to the public domain by the author on February 15,
+1989 at the Software Development Conference, San Francisco, CA.  With the
+understanding that there are no warranties of any sort either expressed or
+implied, you may use the code in whole or part for any lawful purpose. The
+author does not warrant or guarantee that this code is fit for any particular
+purpose. You are under no obligation to acknowledge the author when using
+this code, but you may do so if you desire.  The author neither seeks nor
+desires any contributions for this code.
+
+Should you desire to communicate with the author, the preferred method is
+via the author's bulletin board, Pontchippi.  Pontchippi is an OPUS board.
+You may contact it directly at 504-244-1417 or via net mail to node 390/105.
+The board has a 9600 baud US Robotics Courier HST modem.  Should you contact
+the board directly, access to the board is granted immediately up completion
+of a very simple questionnaire.
+
+The author wishes to acknowledge and thank Jack Purdum and Tim Leslie of
+Ecosoft for their assistance and support.  In addition to Jack and Tim,
+Steve Russell of SLR Systems was also of invaluable assistance. All helped
+in this project by debugging and offering their expert advice and guidance.
+They always had time for me seemingly whenever I requested it.
+
+Finally, this program is dedicated to the memory of my father-in-law,
+Mariano "Val" Valentino.  The only request the author makes for using the
+program is that the program name be left as "VAL" in his memory.
+
+David Troendle
+New Orleans, LA
+February 10, 1989
+
+
+Updates applied 01/95 by Dave Dunfield.
+Diffs of changed files are included:
+
+1. Fix incorrect gaps being generated in .COM files due to the linker
+   failing to update its location counter after certain operations.
+
+*** execfile.c(148) < > execfile.old(148) ***
+>  Else
+>   highest_uninitialized_byte = (*segment_list.last).address +
+>                                (*segment_list.last).length;
+*** execfile.c(178) < > execfile.old(181) ***
+<       next_available_address += partial_length;
+*** execfile.c(196) < > execfile.old(198) ***
+<          next_available_address += partial_length;
+
+2. Remove redundant 'near' declarations which prevented program from
+   compiling correctly in memory models other than small.
+
+*** langext.h(174) < > langext.old(174) ***
+<Type void  /* near */       *near_ptr;
+<Type char  /* near */       *char_ptr;
+>Type void near              *near_ptr;
+>Type char near              *char_ptr;
+
+3. Change sigon message so that it will only be output if the linker
+   issues interactive prompts or performs status output. This allows
+   the linker to be 'quiet' when run with full command line parameters.
+
+*** initlink.c(16) < > initlink.old(16) ***
+> /* Issue Signon message */
+> linker_message("VAL Experimental Linker Compiled %s %s\n",__DATE__,__TIME__);
+>
+*** linkerio.c(93) < > linkerio.old(93) ***
+<static char                            flag = 0;
+*** linkerio.c(96) < > linkerio.old(95) ***
+< if(!flag) { /* Issue Signon message */
+<  flag = -1;
+<  fprintf(stdout,"VAL 8086 linker - %s\n",__DATE__); }
+
+4. Change to prevent linker from trying to expand constant filename
+   created from argv[0]. This caused it to fail if exec'd without
+   a full drive:pathname to the executable file.
+
+*** initlink.c(111) < > initlink.old(111) ***
+> process_filename(program_directory_string);
+*** initlink.c(142) < > initlink.old(143) ***
+< process_filename(help_filename);
+*** userinp.c(28) < > userinp.old(28) ***
+< process_filename(default_filename);
+
+5. Change printing of help file to not waste a line on the screen,
+   and re-arrange help file so that it doesn't scroll off the top.
+
+*** token.c(506) < > c:token.old(506) ***
+<     If *CharPtr(object_file_element) Is '\f'
+<       Then
+<        linker_message("Press [RETURN] to continue...");
+<        gets(CharPtr(object_file_element));
+<       Else
+<        linker_message(CharPtr(object_file_element));
+>     fputs(CharPtr(object_file_element), stdout);
+>     If strcmp(CharPtr(object_file_element), 
+>               "Press [RETURN] to continue.\n") IsZero
+>      Then
+>       gets(CharPtr(object_file_element));

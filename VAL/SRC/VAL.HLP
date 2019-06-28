@@ -1,0 +1,97 @@
+
+Usage: val <obj-files>,<exe-file>,<map-file>,<lib-files>
+
+where:
+  <obj-files> = <ambiguous filespec> [{'+' | ' '} <ambiguous filespec>]...
+  <exe-file>  = <unique filespec>
+  <map-file>  = <unique filespec>
+  <lib-files> = <ambiguous filespec> [{'+'|' '} <ambiguous filespec>]...
+
+If any of the above operands are missing, you will be prompted.  A ';' may 
+appear in place of a comma to take defaults for the balance of the operands.
+
+A response file may be used where ever a filespec can occur.  A response file
+is prefixed with a '@'.  The linker will automatically look for two response
+files called "VAL.ENV".  One in the directory where the linker resides and the
+other from the current drive/directory.  In this manner, defaults may be set.
+Note these files work like any response file, and carriage returns are
+probably not desired.
+
+Switches, which are explained below, may appear either before or after a
+file specification.  A switch which immediately preceeds a file specificaion
+must be followed by a space.  Switch are prefixed by "/".
+
+
+Switches:
+Abbr     Full Name      Def                   Description
+---- ----------------- ------ -----------------------------------------------
+AH   ALignexeheader    Yes    Align EXE header to paragraph boundary
+BSZ  BUffersize:n      32768  Set I/O buffersize (512 - 65,024 bytes)
+CI   CAseignore        Yes    Linker will ignore the case of symbols
+     COmfile           No     Linker will to produce a .COM file
+     CParmaxalloc      0xFFFF Sets max paragraphs needed beyond EXE file
+     DEtaillevel       0      Sets the detail included in the .MAP file:
+                               0 - Standard link map 
+                               1 - Include Segment header info
+                               2 - Include Segment header info by module
+                               3 - Include data map by module
+                               4 - Include EXE header
+                               5 - Include fixup info
+     DOsseg            No     Use Microsoft "DOSSEG" segment ordering
+     EXechecksum       No     Compute checksum in .EXE header file 
+GHS  GRouphashsize:n   25     Hash size for group symbols (1, 1023)
+HLP  HElp              No     Produce this information
+LHS  LNamehashsize:n   25     Hash size for LNAMES symbols (1 - 1023)
+MP   MAP               No     Produce link map with public symbols
+MEX  MAXExternals:n    512    Maximum publics symbols per module (1 - 1024)
+MGP  MAXGroups:n       32     Maximum groups per module (1 - 1024)
+MLN  MAXLnames:n       512    Maximum LNAMES per module (1 - 1024)
+
+Switches (continued):
+Abbr     Full Name      Def                   Description
+---- ----------------- ------ -----------------------------------------------
+MSG  MAXSegments:n     128    Maximum segments per module (1 - 1-24)
+NAH  NOALignexeheader  No     Align EXE header to standard page boundary
+NCI  NOCAseignore      No     Linker will respect case of symbols
+NCO  NOCOMfile         Yes    Linker will not produce a .COM file
+NDO  NODOsseg          Yes    Linker will not use DOSSEG ordering
+NEX  NOEXechecksum     Yes    Set checksum in .EXE header file to 0
+NMP  NOMAp             Yes    Publics not included in link map
+NOB  NOOBjchecksum     Yes    Ignore checksum in .OBJ records               
+NPA  NOPAuse           Yes    No pause before writing executable image
+NSY  NOSYsfile         Yes    Linker will not produce a .SYS file
+NST  NOSTatistics      Yes    Linker will not give performance statistics
+     OBjchecksum       No     Test checksum in .OBJ records               
+     ORder:(text)      none   Segment ordering expression (see below)
+     PAuse             No     Pause before writing executable image
+PHS  PUblichashsize:n  525    Hash size for public symbols (1 - 1023)
+SHS  SEgmenthashsize:n 25     Hash size for segment (1 - 1023)
+STD  STACk:n           none   Insure there is a stack of at least n bytes
+STS  STATistics        No     Produce performance statistics for linker
+     SYsfile           No     Produce a .SYS file (e.g., device driver)
+TMP  TEmpfile:(text)  val.tmp Specifies name of linker temporary file
+
+
+Segment order expressions:
+<exp>     :: <term>   [{'or' |'+'|'|'} <term>  ]...
+<term  >  :: <factor> [{'and'|'*'|'&'} <factor>]...
+<factor>  :: ['!'] 
+	     {'True'		        | (always include segment)
+	      'Talse'		        | (never include segment)
+	      'Class['  <pattern> ']'   | (inc if seg's class matches pattern)
+	      'Group['  <pattern> ']'   | (inc if seg's group matching pattern)
+	      'Segment['<pattern> ']'   | (inc if segment name matches pattern)
+	      '(' <exp> ')'}
+<pattern> :: A pattern used to match a class, group or segment.  The pattern
+	     may contain imbedded '?' characters which will match any single
+	     character.  The pattern may contain a leading and/or trailing '*'
+	     character.  If the '*' is leading, then the remaining pattern must
+	     match the end of the class, group or segment name.  If the '*' is
+	     trailing, then the remaining pattern must match the beginning of
+	     the class, group or segment name.  If the '*' is both leading and
+	     trailing, then the remaining pattern can match anywhere in the
+	     class, group or segment name.
+
+Example: /DOSSEG is equivalent to:
+	 /ORDER:(class[*code],!group[dgroup],class[begdata],
+		 !(class[bss]|class[stack]),class[bss],class[stack])

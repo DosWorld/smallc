@@ -1,0 +1,1558 @@
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                                    V. A. L.
+    
+                                      8086
+                                     LINKER
+    
+                                Technical Notes
+    
+                                       by
+                                 David Troendle
+    
+    
+    
+    
+    
+                         Reformatted from "Slide Show"
+                        by Dave Dunfield - Mar 27, 1995
+    VAL Technical Notes                                              Page: 1
+
+
+    1. Linker Overview
+    
+       The primary purpose of a linker is to produce an file  which  can  be
+       executed by an operating system.
+    
+       In DOS, executable files come in three flavors:
+    
+          "EXE" files
+          "COM" files
+          "SYS" files
+    
+       The input to  the  linker  comes  from  module(s)  called  translator
+       modules.
+    
+       Individual translator modules can be stored  in  "OBJ"  files.  "OBJ"
+       files are produce by language  translators  such  as  assemblers  and
+       compilers.
+    
+       Libraries of translator modules can be stored in  "LIB"  files  which
+       are produced by a librarian from either  "OBJ"  files or other  "LIB"
+       files.
+    
+       A linker can process translator modules from either  "OBJ"  or  "LIB"
+       files, but at least one module must have come from an "OBJ" file.
+    
+       All translator modules from  "OBJ"  files will  be  included  in  the
+       executable file,  but only modules which resolve externals come  from
+       "LIB" files.
+    
+    2. Comparison of Executable Files
+    
+       "EXE"  files have  a  header  which  contains  relocation  and  other
+       information which permit "EXE" files to have multiple segments.  This
+       header sets  "EXE"  files apart from the other executable file types.
+       Programs are written starting at address 0  (relative  to  where  the
+       program is loaded in memory).
+    
+       "COM"  files have no header.  "COM"  files  are  written  starting  a
+       address 100H because the  "COM"  file is loaded immediately after the
+       program segment prefix (PSP)  which is 100H bytes long.  At the start
+       of the program,  the CS and DS segment registers point  to  the  PSP.
+       "EXE"  files which have an empty relocation table can be converted to
+       "COM" files by the "EXE2BIN" program.
+    
+       "SYS" files are more closely related to "COM" files than "EXE" files.
+       "SYS"  files are loaded once at DOS initialization time.  Since there
+       is no PSP,  the programs are written starting at address 0.  However,
+       like "COM" files, "SYS" files must have an empty relocation table.
+    VAL Technical Notes                                              Page: 2
+
+
+    3. Contents of Executable Files
+    
+          "EXE" files                                      "SYS" files
+      ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿                                ÚÄÄÄÄÄÄÄÄÄÄÄ¿
+      ³   "EXE" header   ³                                ³load moduleÃÄÄ¿
+      ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´                                ÀÄÄÄÄÄÄÄÄÄÄÄÙ  ³
+      ³ relocation table ³                                               ³
+      ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´                    ÚÄÄÄÄÄ¿                    ³
+      ³   load module    ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´org 0ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+      ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ                    ÀÄÄÄÄÄÙ
+    
+    
+    
+                    "COM" files
+                   ÚÄÄÄÄÄÄÄÄÄÄÄ¿                 ÚÄÄÄÄÄÄÄÄ¿
+                   ³load moduleÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´org 100H³
+                   ÀÄÄÄÄÄÄÄÄÄÄÄÙ                 ÀÄÄÄÄÄÄÄÄÙ
+    
+       Each of the above contents are described in detail in  the  following
+       slides.
+    VAL Technical Notes                                              Page: 3
+
+
+                                  "EXE" File Header
+    ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³Offset³                           Description                             ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³00-01 ³ The "EXE" file signature 4D5AH.                                   ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³02-03 ³ Length of the "EXE" file modulo 512.                              ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³04-05 ³ Number of 512-byte pages.  If the last page is not full it is     ³
+    ³      ³ still included in the count.                                      ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³06-07 ³ Number of relocation items.                                       ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³08-09 ³ Number of 16-byte paragraphs occupied by EXE header and relo table³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³0A-0B ³ Number of paragraphs required immediately after load module.      ³
+    ³      ³ The linker computes the number of uninitialized bytes at the end  ³
+    ³      ³ of the load module.  Instead of writing these bytes to the "EXE"  ³
+    ³      ³ file the linker sets this value to provide space for this data.   ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³0C-0D ³ Maximum number of paragraphs which may be required immediately    ³
+    ³      ³ after the EXE file. This comes from the CPARMAXALLOC switch.      ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³0E-11 ³ Offset/Segment displacement into the load module of the initial   ³
+    ³      ³ SP/SS. The displacement is converted to actual address by adding  ³
+    ³      ³ the base address of the load module.  Since there may be several  ³
+    ³      ³ stack segments in the translator modules, the linker uses the     ³
+    ³      ³ highest address of the largest segment with the stack attribute.  ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³12-13 ³ Word checksum computed as minus the sum of all the words in the   ³
+    ³      ³ file. Overflows are ignored.  DOS will not validate the checksum  ³
+    ³      ³ if this value is set to zero                                      ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³14-17 ³ Offset/Segment displacement into the load module of the initial   ³
+    ³      ³ IP/CS. The displacement is converted to an actual address by      ³
+    ³      ³ addint the base address of the load module.                       ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³18-19 ³ Length of EXE file header (Used to find beginning of relo table)  ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³1A-1B ³ Overlay number.  This is zero for the main program.               ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³1C-1D ³ Always 0001H.                                                     ³
+    ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    Note:  The "EXE" file header routines are in "EXECFILE.C" (handout page 9)
+    VAL Technical Notes                                              Page: 4
+
+
+       3.1 Relocation Table
+    
+          The number of relocation items is specified at offset 06-07 in the
+          "EXE"  file header.  The offset of the relocation table is located
+          at offset 18-19 in the  "EXE"  file header.  Usually this value is
+          001EH,  but can be larger  if  the  "EXE"  file  header  has  been
+          extended.
+    
+          The relocation table can be viewed as an array  of  Offset/Segment
+          displacements into the load module.  For each address, the segment
+          portion of the base address of the load module  is  added  to  the
+          word at that displacement.  The only time  a  relocation  item  is
+          needed is when a fixup involves a segment.  As we will see  later,
+          this can only be caused by base and pointer type fixups.
+    
+          As an example of a how a relocation item  is  generated,  consider
+          the following:
+    
+                    foo     db      'a'
+                    bar     dd      foo
+    
+          Note that the contents of "bar"  is the address of "foo",  but the
+          actual address of  "foo"  is not known until the program is loaded
+          in memory.  All that is known at link time is how far  (i.e.,  the
+          displacement)  into the load module "foo"  and "bar"  are located.
+          Only the displacement of "foo"  is stored at link time.  But,  the
+          linker makes a relocation  entry  showing  that  "bar"+2  must  be
+          relocated.
+    
+       3.2 Load Module
+    
+          By far,  the generation of the load module is the trickest part of
+          producing an executable file.  The contents of the load module  is
+          generated from the contents of translator modules stored in  "OBJ"
+          and "LIB" files. Much of the structure of translator modules comes
+          from the assembler  directives.  In  turn,  those  directives  are
+          related to the architecture of the 80x86 family of micros.
+    
+          Here are some of the important directives:
+    
+          SEGMENT/ENDS is used to give a logical name  along  with  grouping
+          and  combining  information  for  the  segments.  The  linker   is
+          responsible for arranging and  combining  these  logical  segments
+          into the physical segments which comprise a load module.
+    
+          EXTRN/PUBLIC is used access data across translator modules.
+    
+          A  detailed  description  of  the  format  of  translator  modules
+          follows.
+    VAL Technical Notes                                              Page: 5
+
+
+    4. Terminology and Abbreviations
+    
+       MAS - Memory Address Space:  The memory capable of being addressed by
+       the hardware architecture.
+    
+       T-MODULE - Translator Module:  This is a unit of object code produced
+       by a language translator.  They may be stored individually  in  "OBJ"
+       files or collections may be stored in "LIB" files.
+    
+       FRAME: A contiguous 64K chunk of MAS.
+    
+       FRAME NUMBER: Paragraph number where a FRAME begins.
+    
+       CANONIC FRAME: For the 8086, each byte of memory is encompassed by up
+       to 4096 FRAMEs.  The CANONIC FRAME frame is lowest FRAME NUMBER which
+       encompasses that byte.
+    
+       LSEG -  Logical  Segment:  Data  and  code  between  SEGMENT  -  ENDS
+       directives.
+    
+       PSEG - Physical Segment:  A collection of one or  more  LSEGs  placed
+       into a load module.
+    
+    5. Fixup Overview
+    
+       Not all references to MAS can be resolved at translation  time.  This
+       can happen when one T-MODULE must  access  data  located  in  another
+       T-MODULE.  When this happens, the language translator places an entry
+       in  the  T-MODULE  so  that  the  linker  can  complete  the  address
+       reference. Such entries in a T-MODULE are called "Fixups".
+    
+       In order for the linker to complete the address reference,  it  needs
+       five pieces of information:
+    
+          The LOCATION in memory where the reference  occurs.  This  is  the
+          address which must be fixed up.
+    
+          The type of LOCATION in memory where the reference occurs.
+    
+          Whether the fixup is relative to the IP or not. This is refered to
+          as the fixup MODE.
+    
+          The TARGET address which LOCATION is referencing.
+    
+          The FRAME number in the segment register  used  to  reference  the
+          TARGET address.
+    VAL Technical Notes                                              Page: 6
+
+
+       5.1 LOCATION Types
+    
+          There are five types of LOCATIONs. They are POINTER, BASE, OFFSET,
+          HIBYTE,  and LOBYTE.  The relative position  and  length  of  each
+          LOCATION type from a LOCATION, X is given below:
+    
+                   ÚÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄ¿
+                   ³   X+0    ³   X+1    ³   X+2    ³   X+3    ³
+                   ÀÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÙ
+    
+                   ÃÄÄLOBYTEÄÄ´
+    
+                              ÃÄÄHIBYTEÄÄ´
+    
+                   ÃÄÄÄÄÄÄÄOFFSETÄÄÄÄÄÄÄÄ´
+    
+                                         ÃÄÄÄÄÄÄÄÄBASEÄÄÄÄÄÄÄÄÄ´
+    
+                   ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄPOINTERÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    
+       5.2 Fixup Modes
+    
+          There are two fixup modes.  Both modes stem from the  architecture
+          of the 80x86 microprocessor family.  The TARGET may  be  addressed
+          directly via the offset/segment  mechanism.  This  fixup  mode  is
+          called "segment-relative".
+    
+          The other manner a TARGET may be addressed is relative to the  IP.
+          For example, the TARGET of the 80x86 jump instructions (e.g.,  JE,
+          JC, JA, etc) are all relative to the IP. This fixup mode is called
+          "self-relative".  Note that the self-relative mode is relative  to
+          the value of the IP when the instruction executes.  In all  cases,
+          the IP points to the first byte of the instruction  following  the
+          one being executed.
+    
+          5.2.1 TARGET
+    
+             The TARGET is the location in MAS being referenced by LOCATION.
+             There are four basic ways of specifying the  TARGET.  The  four
+             methods of specifying a TARGET are:
+    
+                TARGET is specified relative to an LSEG.
+                TARGET is specified relative to a group.
+                TARGET is specified relative to an external symbol.
+                TARGET is specified relative to an absolute FRAME.
+    
+             The four primary methods specify a displacement while the  four
+             secondary methods do not specify a  displacement  (because  the
+             displacement is 0).
+    VAL Technical Notes                                              Page: 7
+
+
+                                 Primary TARGET Methods
+          ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+          ³Method³       Notation          ³            Description            ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T0  ³SI(segment),displacement ³The TARGET is at the specified     ³
+          ³      ³                         ³displacement in the LSEG segment.  ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T1  ³GI(group),displacement   ³The TARGET is at the specified     ³
+          ³      ³                         ³displacement in the group.         ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T2  ³EI(external),displacement³The TARGET is at the specified     ³
+          ³      ³                         ³displacement past the external.    ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T3  ³FR(frame),displacement   ³The TARGET is at the specified     ³
+          ³      ³                         ³disp. past the FRAME NUMBER frame. ³
+          ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+             Example:
+    
+             SI(foo),4 means the TARGET  is  4  bytes  into  the  LSEG  foo.
+             Several T-MODULES could have an LSEG named  foo  which  may  be
+             combined into a PSEG foo.  So,  the final displacement  in  the
+             PSEG foo  may  not  be  4.  The  linker  must  take  this  into
+             consideration.
+    
+                              Secondary TARGET Methods
+          ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+          ³Method³ Notation   ³               Description                  ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T4  ³SI(segment) ³The TARGET is the base of the LSEG segment. ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T5  ³GI(group)   ³The TARGET is the base of the group.        ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T6  ³EI(external)³The TARGET is the specified external.       ³
+          ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  T7  ³FR(frame)   ³The TARGET is the specified frame.          ³
+          ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+          5.2.2 FRAME
+    
+             The FRAME portion of a fixup specifies the  FRAME  NUMBER  that
+             will be used as the frame of reference for LOCATION's reference
+             to TARGET.  Typically,  this frame of reference is one  of  the
+             segment registers.  The FRAME NUMBER in the segment register is
+             specified via the assembler "ASSUME" directive.
+    
+             Even if the fixup is self-relative, the TARGET must still be in
+             the FRAME given by the FRAME NUMBER in  the  segment  register.
+             So,  a FRAME is required for both segment-relative  fixups  and
+             self-relative fixups.
+    VAL Technical Notes                                              Page: 8
+
+
+             There are seven methods of specifying a FRAME:
+    
+                A segment
+                A group
+                An external
+                An absolute FRAME NUMBER
+                LOCATION's FRAME
+                TARGET's FRAME
+                No FRAME specified
+    
+                                      FRAME Methods
+    ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³Method³                          Description                              ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F0  ³The FRAME for the fixup is the CANONIC FRAME of the PSEG containing³
+    ³      ³the LSEG.  (Since the fixup is generated at translation time, an   ³
+    ³      ³LSEG is specified.)                                                ³
+    ³      ³Notation:  EI(segment)                                             ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F1  ³The FRAME for the fixup is the CANONIC FRAME of the PSEG located   ³
+    ³      ³lowest in MAS.  A group is specified.                              ³
+    ³      ³Notation:  GI(group)                                               ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F2  ³The FRAME for the fixup is specified by an external.  Typically,   ³
+    ³      ³the external is located in a T-MODULE different from the T-MODULE  ³
+    ³      ³generating the fixup.                                              ³
+    ³      ³Notation:  EI(external)                                            ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F3  ³The absolute FRAME number is specified.                            ³
+    ³      ³Notation:  FR(FRAME)                                               ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F4  ³The FRAME is the CANONIC FRAME of the PSEG containing LOCATION.    ³
+    ³      ³Notation:  LOCATION                                                ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F5  ³The FRAME is determined by the TARGET.  Notation:  TARGET          ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F6  ³No frame of reference specified.  Notation:  NONE                  ³
+    ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+             When FRAME method F2 is specified  (FRAME is  specified  by  an
+             external),  there are three cases depending on how the external
+             is defined:
+    
+                                  FRAME Method F2 cases
+    ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³Method³                         Description                               ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F2a ³If the external is defined relative to an LSEG not in a group then ³
+    ³      ³the FRAME is the CANONIC FRAME of the PSEG containing the LSEG.    ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³  F2b ³If the external is defined absolutely and not in a group, then the ³
+    ³      ³FRAME is the CANONIC FRAME of the external.                        ³
+    ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ³
+    ³  F2c ³If the external is associated with a group, the FRAME is the       ³
+    ³      ³CANONIC FRAME of the PSEG in the group with the lowest MAS.        ³
+    ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    VAL Technical Notes                                              Page: 9
+
+
+             When FRAME method F2 is specified  (FRAME is specified  by  the
+             TARGET),  there are four cases depending on how the TARGET  was
+             specified:
+    
+                                  FRAME Method F5 cases
+     ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³Method³                          Description                             ³
+     ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+     ³  F5a ³If the TARGET method is T0 or T4, then FRAME is the CANONIC FRAME ³
+     ³      ³of PSEG containing TARGET.                                        ³
+     ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+     ³  F5b ³If the TARGET method is T1 or T5, then FRAME is the CANONIC FRAME ³
+     ³      ³of PSEG in the same group as TARGET and with the lowest MAS.      ³
+     ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+     ³  F5c ³If the TARGET method is T2 or T6, then the FRAME is determined by ³
+     ³      ³the rules given in FRAME method F2.                               ³
+     ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+     ³  F5d ³If the TARGET method is T3 or T7, then the FRAME is the FRAME     ³
+     ³      ³NUMBER specified by the TARGET.                                   ³
+     ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+       5.3 Performing a Fixup
+    
+          Regardless of the fixup mode  (segment-relative or self-relative),
+          the first step in performing a fixup is to insure that the  TARGET
+          is addressable given the FRAME of reference.  That is,  the TARGET
+          must lie between FRAME and FRAME+65535 inclusive.
+    
+             FRAME <= TARGET <= FRAME+65535
+    
+          If this is not the case, a warning is given.
+    
+          After verifying that TARGET can be addressed by FRAME, how a fixup
+          is performed depends of the FIXUP mode.
+    
+    
+       5.4 Self-Relative Fixups
+    
+          Self-relative fixups are permitted  for  LOBYTE  and  OFFSET  type
+          LOCATIONs only.  If the LOCATION type is HIBYTE, BASE, or POINTER,
+          no fixup is performed and an error message is given.
+    
+          For self-relative fixups,  the value of the PC  (CS:IP)  when  the
+          instruction is executed must be determined.  Then, the DISTANCE to
+          the TARGET from the PC is computed.  The formulae for DISTANCE and
+          PC are given below:
+    
+             PC = LOCATION + 1 (If LOCATION type is LOBYTE)
+             PC = LOCATION + 2 (If LOCATION type is OFFSET)
+             DISTANCE = TARGET - PC
+    
+          For LOBYTE locations,  an error  is  issued  when  DISTANCE  falls
+          outside of -128 <= DISTANCE <= 127.
+    VAL Technical Notes                                              Page: 10
+
+
+          The fixup is performed by adding DISTANCE to LOCATION.  For LOBYTE
+          LOCATIONs,  DISTANCE is added modulo 256.  For  OFFSET  LOCATIONs,
+          DISTANCE is added modulo 65536.
+    
+       5.5 Segment-Relative Fixups
+    
+          For  segment-relative  fixups,  DISTANCE  =  TARGET  -  FRAME.  If
+          DISTANCE falls outside of 0 ó  DISTANCE  ó  65535,  a  warning  is
+          issued.  The following  table  gives  how  to  perform  the  fixup
+          depending on LOCATION type:
+    ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³LOCATION³                            Action                               ³
+    ³  type  ³                                                                 ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³LOBYTE  ³DISTANCE is added (modulo 256) to the low order byte at LOCATION.³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³HIBYTE  ³DISTANCE is added (modulo 256) to the high order byte at LOCATION³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³OFFSET  ³DISTANCE is added (modulo 65536) to the word at LOCATION.        ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³BASE    ³FRAME is added (modulo 65536) to the word at LOCATION.           ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ³
+    ³POINTER ³DISTANCE is added (modulo 65536) the low order word at LOCATION. ³
+    ³        ³A relocation item for the word at LOCATION is created.           ³
+    ³        ³FRAME is added (modulo 65536) to the high order word of the DWORD³
+    ³        ³at LOCATION.  A relocation item for the high order word of the   ³
+    ³        ³DWORD at LOCATION is created.                                    ³
+    ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+    6. T-MODULE Record Format Basics
+    
+       All T-MODULE records have the following basic format:
+    
+                            ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                            ³Record³ Record³Information Specific³Check³
+       Field NamesÄÄÄÄÄÄÄÄÄ>³ Type ³ Length³   to Record Type   ³ Sum ³
+                            ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+       Field LengthsÄÄÄÄÄÄÄ>³  1   ³   2   ³  Record Length - 1 ³  1  ³
+          (bytes)           ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+       Record Type --
+          This one byte field identifies the type of T-MODULE record.
+    
+       Record Length --
+          This word contains the number of bytes  in  all  following  fields
+       (including the checksum).
+    
+       Information Specific to Record Type --
+          This field contains the data for the specified Record Type.
+    
+       Check Sum --
+          This byte contains the negative of the sum of  all  the  preceding
+       bytes in the record.  Therefore,  the sum of all  the  bytes  in  the
+       record will be 0.
+    VAL Technical Notes                                              Page: 11
+
+
+       6.1 T-MODULE Record Format -- Bit Fields
+    
+          Bit fields are denoted as follows:
+    
+                                   ÚÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+                                   ³ Bit ³ Bit ³ Bit ³
+            Field NameÄÄÄÄÄÄÄÄÄÄÄÄ>³Field³Field³Field³
+                                   ³  1  ³  2  ³  n  ³
+                                   ÃÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+            Field LengthÄÄÄÄÄÄÄÄÄÄ>³  4  ³  1  ³  3  ³
+               (bits)              ÃÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄ´
+                                   ³      byte       ³
+                                   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+       6.2 T-MODULE Record Format -- INDEX Fields
+    
+          There are three special kinds of fields in a T-MODULE record:
+    
+          "INDEX" fields:  ÚÄÄÄÄÄ¿
+                           ³INDEX³
+                           ÃÄÄÄÄÄ´
+                           ³ 1-2 ³
+                           ÀÄÄÄÄÄÙ
+    
+          An INDEX field is one or two bytes long.  If the high order bit of
+          the first byte of the INDEX is 0,  then the INDEX is one byte long
+          and the value is the remaining 7 bits  (0 - 127).  Otherwise,  the
+          INDEX is two bytes long and the value of  the  INDEX  is  the  low
+          order 7 bits of the first byte * 256 plus the second byte.
+    
+       6.3 T-MODULE Record Format -- NAME Fields
+    
+          The format of a "NAME" field is:
+    
+                           ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄ¿
+                           ³ NAME ³   NAME    ³
+                           ³Length³           ³
+                           ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄ´
+                           ³  1   ³NAME Length³
+                           ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+          Note:  NAMEs of 0 bytes  are  permitted.  The  NAME  is  not  NULL
+          terminated.
+    VAL Technical Notes                                              Page: 12
+
+
+       6.4 T-MODULE Record Format -- VALUE Fields
+    
+          The format of "VALUE" fields is:
+    
+                           ÚÄÄÄÄÂÄÄÄÄÄÄ¿
+                           ³Code³Number³
+                           ÃÄÄÄÄÅÄÄÄÄÄÄ´
+                           ³ 1  ³ 0-4  ³
+                           ÀÄÄÄÄÁÄÄÄÄÄÄÙ
+    
+          When 0 <= Code  <= 128,  the Number field is omitted and the VALUE
+          is Code.
+    
+          When Code = 129,  the Number field is 2 bytes long,  and the VALUE
+          is Number.
+    
+          When Code = 132,  the Number field is 3 bytes long,  and the VALUE
+          is Number.
+    
+          When Code = 136,  the Number field is 4 bytes long,  and the VALUE
+          is Number.
+    
+       6.5 T-MODULE Record Format -- T-MODULE Header
+    
+                           ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                           ³   ³Record³T-MODULE NAME³Check³
+                           ³80H³Length³             ³ Sum ³
+                           ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                           ³ 1 ³  2   ³    NAME     ³  1  ³
+                           ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+          This record type must be the first record in the T-MODULE,  and it
+          names the T-MODULE.  Frequently,  the T-MODULE NAME is the name of
+          the source file to the language translator.
+    
+       6.6 T-MODULE Record Format -- List of NAMEs (LNAMEs)
+    
+                           ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                           ³   ³Record³            ³Check³
+                           ³96H³Length³Logical NAME³ Sum ³
+                           ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                           ³ 1 ³  2   ³    NAME    ³  1  ³
+                           ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                                      ÀÄÄrepeatedÄÄÙ
+    
+          Each Logical NAME is entered into a "List of NAMES" (LNAME) in the
+          order they are encountered in type 96H  records.  The  list  index
+          starts at 1  (0 means not specified).  There may be more than  one
+          type 96H record in  a  T-MODULE.  When  this  occurs,  append  the
+          Logical NAMEs to the list. The Logical NAME field is repeated. The
+          number of repetitions is determined by the Record Length.
+    VAL Technical Notes                                              Page: 13
+
+
+       6.7 T-MODULE Record Format -- LSEG Definition (SEGDEF)
+    
+               ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+               ³   ³Record³ Segment ³Segment³Segment³Class³Overlay³Check³
+               ³90H³Length³Attribute³Length ³ INDEX ³INDEX³ INDEX ³ Sum ³
+               ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+               ³ 1 ³  2   ³  1-4    ³  2    ³ INDEX ³INDEX³ INDEX ³  1  ³
+               ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+    Segment Attribute:  ÚÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄ¿    ACBP:  ÚÄÂÄÂÄÂÄ¿
+                        ³ACBP³FRAME NUMBER³Offset³           ³A³C³B³P³
+                        ÃÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄ´           ÃÄÅÄÅÄÅÄ´
+                        ³ 1  ³     2      ³  1   ³           ³3³3³1³1³
+                        ÀÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄ´           ÃÄÁÄÁÄÁÄ´
+                             ÀÄÄÄÄconditionalÄÄÄÄÙ           ³  Byte ³
+                                                             ÀÄÄÄÄÄÄÄÙ
+                                                    Note:  ACBP.P must be 0.
+    
+          There is one SEGDEF record for each LSEG in a T-MODULE.  Like  the
+          LNAME list, this forms a list of LSEGs (indexed from 1).
+    
+       6.8 T-MODULE Record Format -- SEGDEF.ACBP.A
+    
+          The following table gives the meaning of the A field of  the  ACBP
+          field:
+    
+      ÚÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+      ³A³                             Description                           ³
+      ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³0³This is an absolute segment. The FRAME NUMBER and Offset fields of ³
+      ³ ³the Segment Attribute field will be present.                       ³
+      ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³1³This is a relocatable, byte-aligned LSEG.                          ³
+      ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³2³This is a relocatable, word-aligned LSEG.                          ³
+      ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³2³This is a relocatable, paragraph-aligned LSEG.                     ³
+      ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³4³This is a relocatable, page-aligned LSEG.                          ³
+      ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³5³This is a relocatable, DWORD-aligned LSEG.                         ³
+      ÀÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    VAL Technical Notes                                              Page: 14
+
+
+       6.9 T-MODULE Record Format -- SEGDEF.ACBP.C
+    
+          The following table gives the meaning of the C field of  the  ACBP
+          field:
+    ÚÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³C³                            Description                             ³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³0³The LSEG is private and may not be combined.                        ³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³1³Undefined.                                                          ³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³2³The LSEG is public and may be combined with others of the same name.³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³3³Undefined.                                                          ³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³4³The LSEG is public and may be combined with others of the same name.³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³5³The LSEG is a stack segment and may be combined with others of the  ³
+    ³ ³same name.                                                          ³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³6³The LSEG is a common segment and must be combined with others of the³
+    ³ ³same name.                                                          ³
+    ÃÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+    ³7³The LSEG is public and may be combined with others of the same name.³
+    ÀÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+       6.10 T-MODULE Record Format -- Notes on Combining
+    
+          LSEGs which can be combined and are not  common  are  combined  as
+          follows:
+    
+                        ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+                        ³LSEG data for first T-MODULE     ³
+                        ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                        ³Alignment Gap for second T-MODULE³
+                        ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                        ³LSEG data for second T-MODULE    ³
+                        ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                        ³              ///                ³
+                        ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                        ³Alignment Gap for last T-MODULE  ³
+                        ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                        ³LSEG data for last T-MODULE      ³
+                        ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+          The resultant PSEG is the combined length of the above.
+    
+          For common LSEGs,  the length of the PSEG is  the  length  of  the
+          largest  LSEG.  Therefore,  the  length  of  the  PSEG  cannot  be
+          determined until all the T-MODULEs are processed. For this reason,
+          data cannot be loaded into common segments until fixup time.
+    VAL Technical Notes                                              Page: 15
+
+
+       6.11 T-MODULE Record Format -- LSEG Definition (SEGDEF)
+    
+               ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+               ³   ³Record³ Segment ³Segment³Segment³Class³Overlay³Check³
+               ³90H³Length³Attribute³Length ³ INDEX ³INDEX³ INDEX ³ Sum ³
+               ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+               ³ 1 ³  2   ³  1-4    ³  2    ³ INDEX ³INDEX³ INDEX ³  1  ³
+               ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+          Segment Length --
+             If ACBP.B is 0, then this is the length of the LSEG.  If ACBP.B
+          is 1, then the Segment Length must be 0 and the length of the LSEG
+          is 65536 bytes.
+    
+          Segment INDEX --
+             This is an INDEX into the LNAME list.  LNAME[Segment INDEX]  is
+          the name of the LSEG.
+    
+          Class INDEX --
+             This is an INDEX into the LNAME list. LNAME[Class INDEX] is the
+          name of the LSEG.
+    
+          Overlay INDEX --
+             This is an INDEX into the LNAME list. LNAME[Class INDEX] is the
+          name of the LSEG.
+    
+       6.12 T-MODULE Record Format -- Group Definition (GRPDEF)
+    
+                        ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+                        ³   ³Record³Group NAME ³   ³LSEG ³Check³
+                        ³9AH³Length³  INDEX    ³FFH³INDEX³ Sum ³
+                        ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+                        ³ 1 ³  2   ³  INDEX    ³ 1 ³INDEX³  1  ³
+                        ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÁÄÄÄÄÄÅÄÄÄÄÄÙ
+                                               ÀÄrepeatedÙ
+    
+          Like the LNAME list and SEGDEF  list,  the  GRPDEFs  form  a  list
+          (indexed relative to 1)  of groups.  The is one GRPDEF record  for
+          each group in the T-MODULE.
+    
+          Group NAME INDEX --
+             LNAME[Group NAME INDEX] is the name of the group.
+    
+          LSEG INDEX --
+             This field is repeated once for each LSEG  in  the  group.  The
+          LSEG INDEX is the INDEX into the LSEG list  which  corresponds  to
+          the LSEG in the group.
+    VAL Technical Notes                                              Page: 16
+
+
+       6.13 T-MODULE Record Format -- Public Definition (PUBDEF)
+    
+               ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+               ³   ³Record³Group³Segment³FRAME ³Public³Public³Type ³Check³
+               ³90H³Length³INDEX³ INDEX ³NUMBER³ NAME ³Offset³INDEX³ Sum ³
+               ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+               ³ 1 ³  2   ³INDEX³ INDEX ³ 0-2  ³ NAME ³  2   ³INDEX³  1  ³
+               ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÅÄÄÄÄÄÙ
+                                               ÀÄÄÄÄÄrepeatedÄÄÄÄÄÄÙ
+    
+          Group INDEX --
+             If the public(s)  are defined is an LSEG which  is  part  of  a
+          group, then this is the index into the group list.
+    
+          Segment INDEX --
+             If the public(s) are defined in an LSEG, this is the index into
+          the LSEG list.
+    
+          FRAME NUMBER --
+             This field is  only  present  if  the  public(s)  are  absolute
+          (indicated by both Group INDEX and Segment INDEX being zero). When
+          present, this is the FRAME NUMBER used to reference the public(s).
+    
+       6.14 T-MODULE Record Format -- Public Definition (PUBDEF)
+    
+               ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+               ³   ³Record³Group³Segment³FRAME ³Public³Public³Type ³Check³
+               ³90H³Length³INDEX³ INDEX ³NUMBER³ NAME ³Offset³INDEX³ Sum ³
+               ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+               ³ 1 ³  2   ³INDEX³ INDEX ³ 0-2  ³ NAME ³  2   ³INDEX³  1  ³
+               ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÅÄÄÄÄÄÙ
+                                               ÀÄÄÄÄÄrepeatedÄÄÄÄÄÄÙ
+    
+          Public NAME --
+             This is the name of the public.
+    
+          Public Offset --
+             This is the distance of the start of the public from the group,
+          LSEG or FRAME.
+    
+          Type INDEX --
+             This is ignored.
+    VAL Technical Notes                                              Page: 17
+
+
+       6.15 T-MODULE Record Format -- Public Definition (EXTDEF)
+    
+                       ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+                       ³   ³Record³External³Type ³Check³
+                       ³BCH³Length³  NAME  ³INDEX³ Sum ³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+                       ³ 1 ³  2   ³  NAME  ³INDEX³  1  ³
+                       ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÁÄÄÄÄÄÅÄÄÄÄÄÙ
+                                  ÀÄÄÄrepeatedÄÄÄÙ
+    
+          Like the LNAMEs,  SEGDEFs,  and GRPDEFs,  the EXTDEFs form a  list
+          (indexed relative to  1)  of  the  external  names  used  in  this
+          T-MODULE.
+    
+          External NAME --
+             This is the name of the external public symbol.
+    
+          Type INDEX --
+             This is ignored.
+    
+       6.16 T-MODULE Record Format -- Logical Enumerated Data (LEDATA)
+    
+                       ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                       ³   ³Record³Segment³      ³        ³Check³
+                       ³A0H³Length³ INDEX ³Offset³  Data  ³ Sum ³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                       ³ 1 ³  2   ³ INDEX ³  2   ³   1    ³  1  ³
+                       ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                                                 ÀrepeatedÙ
+    
+          Segment INDEX --
+             This data is to be loaded into the LSEG corresponding to SEGDEF
+          list entry SEGDEF[Segment INDEX].
+    
+          Offset --
+             This data is to be loaded starting at this offset in the LSEG.
+    
+          Data --
+             The byte(s) to be loaded. No more than 1024 can be loaded by an
+          LEDATA record.
+    VAL Technical Notes                                              Page: 18
+
+
+       6.17 T-MODULE Record Format -- Logical Iterated Data (LIDATA)
+    
+                       ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                       ³   ³Record³Segment³      ³ Iterated ³Check³
+                       ³A2H³Length³ INDEX ³Offset³Data Block³ Sum ³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                       ³ 1 ³  2   ³ INDEX ³  2   ³ variable ³  1  ³
+                       ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                                                 ÀÄrepeatedÄÙ
+    
+          Segment INDEX --
+             This data is to be loaded into the LSEG corresponding to SEGDEF
+          list entry SEGDEF[Segment INDEX].
+    
+          Offset --
+             This data is to be loaded starting at this offset in the LSEG.
+    
+          Iterated Data Block --
+             This is (recursively) defined later,  but the total size cannot
+          exceed 1024 bytes.
+    
+       6.18 T-MODULE Record Format -- Logical Iterated Data (LIDATA)
+    
+    
+          Iterated Data Block: ÚÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿
+                               ³Repeat³Block³        ³
+                               ³Count ³Count³ Content³
+                               ÃÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+                               ³  2   ³  2  ³variable³
+                               ÀÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ
+    
+          Repeat Count --
+             If Block Count is zero then Content is interpreted as a  string
+          of bytes of length Repeat Count. If Block Count is zero, then this
+          is the number of times the Content field is repeated.
+    
+          Block Count --
+             If this is zero,  then the Content field is  interpreted  as  a
+          string of bytes of length Repeat Count.  If this is non-zero, then
+          the Content field contains a string of Block Count  Iterated  Data
+          Blocks.
+    
+          Content --
+             This is either a string of bytes as described above or it is  a
+          string of Iterated Data Blocks.
+    VAL Technical Notes                                              Page: 19
+
+
+       6.19 T-MODULE Record Format -- Fixup Record (FIXUPP)
+    
+                       ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                       ³   ³Record³ Thread ³Check³
+                       ³9CH³Length³or Fixup³ Sum ³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                       ³ 1 ³  2   ³variable³  1  ³
+                       ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                                  ÀrepeatedÙ
+    
+          Thread or Fixup --
+             This field can be either a Thread  (high order  bit  is  0)  or
+          Fixup (high order bit is 1). A Thread is a default TARGET or FRAME
+          method.  There are four TARGET threads  and  four  FRAME  threads.
+          Thread fields are used  to  store  the  default  TARGET  or  FRAME
+          method.  A  Fixup  type  field  specifies  the  five   pieces   of
+          information (discussed earlier) necessary to perform a fixup.
+    
+       6.20 T-MODULE Record Format -- Thread
+    
+          Thread: ÚÄÄÄÄÄÄÂÄÄÄÄÄÄÄ¿    Thread Data: ÚÄÂÄÂÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄ¿
+                  ³Thread³Thread ³                 ³0³D³0³Method³Thread³
+                  ³ Data ³ INDEX ³                 ÃÄÅÄÅÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄ´
+                  ÃÄÄÄÄÄÄÅÄÄÄÄÄÄÄ´                 ³1³1³1³  3   ³   2  ³
+                  ³  1   ³0-INDEX³                 ÃÄÁÄÁÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄ´
+                  ÀÄÄÄÄÄÄÁÄÄÄÄÄÄÄÙ                 ³        byte       ³
+                                                   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+          D --
+             If D is zero then a TARGET thread is being specified, otherwise
+          a FRAME thread is being specified.
+    
+          Method --
+             This is the TARGET or FRAME method.  For TARGET  threads,  only
+          the four primary methods are specified.  All seven  FRAME  methods
+          can be specified.
+    
+          Thread --
+             This is the TARGET or FRAME thread number being specified.
+    
+          Thread INDEX --
+             This is not present when F4,  F5 or F6 is being  specified.  In
+          all other cases, this is either a Segment, Group or External index
+          depending on the Method.
+    VAL Technical Notes                                              Page: 20
+
+
+       6.21 T-MODULE Record Format -- Fixup
+    
+                       ÚÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄ¿
+                       ³LOCAT³ Fixup ³ FRAME ³TARGET ³TARGET³
+                       ³     ³Methods³ INDEX ³INDEX  ³Offset³
+                       ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄ´
+                       ³  2  ³  1    ³0-INDEX³0-INDEX³ 0-2  ³
+                       ÀÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÙ
+    
+               LOCAT:  ÚÄÂÄÄÄÄÂÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄ¿
+                       ³ ³    ³ ³LOCATION³LE/LIDATA³
+                       ³1³Mode³0³  Type  ³  Offset ³
+                       ÃÄÅÄÄÄÄÅÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄ´
+                       ³1³ 1  ³1³   3    ³    10   ³
+                       ÃÄÁÄÄÄÄÁÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄ´
+                       ³low byte          high byte³ Note: Low and high bytes
+                       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ       are swapped.
+    
+          Mode --
+             If Mode is 0 then this is a self-relative fixup,  otherwise  it
+          is a segment relative fixup.  Self-relative fixups on  LIDATA  are
+          not permitted.
+    
+       6.22 T-MODULE Record Format -- Fixup
+    
+               LOCAT:  ÚÄÂÄÄÄÄÂÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄ¿
+                       ³ ³    ³ ³LOCATION³LE/LIDATA³
+                       ³1³Mode³0³  Type  ³  Offset ³
+                       ÃÄÅÄÄÄÄÅÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄ´
+                       ³1³ 1  ³1³   3    ³    10   ³
+                       ÃÄÁÄÄÄÄÁÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄ´
+                       ³low byte          high byte³
+                       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+              LOCATION ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+              type:    ³LOCATION³Type Description³
+                       ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                       ³      0 ³     LOBYTE     ³
+                       ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                       ³      1 ³     OFFSET     ³
+                       ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                       ³      2 ³     BASE       ³
+                       ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                       ³      3 ³     POINTER    ³
+                       ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                       ³      4 ³     HIBYTE     ³
+                       ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    VAL Technical Notes                                              Page: 21
+
+
+       6.23 T-MODULE Record Format -- Fixup
+    
+               LOCAT:  ÚÄÂÄÄÄÄÂÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄ¿
+                       ³ ³    ³ ³LOCATION³LE/LIDATA³
+                       ³1³Mode³0³  Type  ³  Offset ³
+                       ÃÄÅÄÄÄÄÅÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄ´
+                       ³1³ 1  ³1³   3    ³    10   ³
+                       ÃÄÁÄÄÄÄÁÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄ´
+                       ³low byte          high byte³
+                       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+          LE/LIDATA Offset --
+             This field is used to determine the  LOCATION  information  for
+          the fixup.  This offset is actually an offset into the last LEDATA
+          or LIDATA record.  The LEDATA or LIDATA contains the base LSEG and
+          offset information.  Note that for LIDATA records,  each time  the
+          data at LE/LIDATA Offset is repeated, the fixup must occur.
+    
+       6.24 T-MODULE Record Format -- Fixup
+    
+                       ÚÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄ¿
+                       ³LOCAT³ Fixup ³ FRAME ³TARGET ³TARGET³
+                       ³     ³Methods³ INDEX ³INDEX  ³Offset³
+                       ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄ´
+                       ³  2  ³  1    ³0-INDEX³0-INDEX³ 0-2  ³
+                       ÀÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÙ
+    
+       Fixup Methods:  ÚÄÂÄÄÄÄÄÂÄÂÄÂÄÄÄÄÄÄ¿
+                       ³F³FRAME³T³P³TARGET³  F --
+                       ÃÄÅÄÄÄÄÄÅÄÅÄÅÄÄÄÄÄÄ´    If F is 1 then FRAME is a thread
+                       ³1³  3  ³1³1³  2   ³    else FRAME is the FRAME method.
+                       ÃÄÁÄÄÄÄÄÁÄÁÄÁÄÄÄÄÄÄ´
+                       ³      byte        ³  T --
+                       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ    If T is 1 then TARGET is a thread
+                                               else TARGET is the TARGET method.
+    
+          FRAME --
+             This is either the FRAME method (F=0) or a FRAME thread (F=1).
+    
+          TARGET --
+             This is either the TARGET  method  (T=0)  or  a  TARGET  thread
+          (T=1).
+    
+          P --
+             If P=0 then the primary TARGET methods are used and the  TARGET
+          Offset field will be present.
+    VAL Technical Notes                                              Page: 22
+
+
+       6.25 T-MODULE Record Format -- Fixup
+    
+                       ÚÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄ¿
+                       ³LOCAT³ Fixup ³ FRAME ³TARGET ³TARGET³
+                       ³     ³Methods³ INDEX ³INDEX  ³Offset³
+                       ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄ´
+                       ³  2  ³  1    ³0-INDEX³0-INDEX³ 0-2  ³
+                       ÀÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÙ
+    
+          FRAME INDEX --
+             Depending on the FRAME method, this is either a Segment, Group,
+          or External INDEX.  This will be present only when a FRAME  thread
+          is not used (F=0).
+    
+          TARGET INDEX --
+             Depending on the TARGET  method,  this  is  either  a  Segment,
+          Group, or External INDEX.  This will be present only when a TARGET
+          thread is not used (T=0).
+    
+          TARGET Offset --
+             The TARGET is TARGET Offset bytes from the Segment,  Group,  or
+          External given by TARGET INDEX.
+    
+       6.26 T-MODULE Record Format -- T-MODULE End (MODEND)
+    
+                       ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                       ³   ³Record³End ³ Start  ³Check³
+                       ³8AH³Length³Type³Address ³ Sum ³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                       ³ 1 ³  2   ³ 1  ³variable³  1  ³
+                       ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+                 End Type                        Attribute
+             ÚÄÄÄÄÄÄÄÄÄÂÄÂÄ¿       ÚÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+             ³Attribute³0³1³       ³Attribute³Description               ³
+             ÃÄÄÄÄÄÄÄÄÄÅÄÅÄ´       ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+             ³    2    ³5³1³       ³    0    ³Non-main, no Start Address³
+             ÃÄÄÄÄÄÄÄÄÄÁÄÁÄ´       ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+             ³    byte     ³       ³    1    ³Non-main, Start Address   ³
+             ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ       ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                                   ³    2    ³Main, no Start Address    ³
+                                   ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                                   ³    3    ³Main, Start Address       ³
+                                   ÀÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    VAL Technical Notes                                              Page: 23
+
+
+       6.27 T-MODULE Record Format -- T-MODULE End (MODEND)
+    
+    
+        Start Address: ÚÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄ¿
+                       ³ Fixup ³ FRAME ³TARGET ³TARGET³
+                       ³Methods³ INDEX ³INDEX  ³Offset³
+                       ÃÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄ´
+                       ³  1    ³0-INDEX³0-INDEX³ 0-2  ³
+                       ÀÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÙ
+    
+          The above fields work exactly the same as  they  do  in  a  FIXUPP
+          record.  The start address is computed from the FRAME  and  TARGET
+          specified above.  The initial CS is the FRAME NUMBER of the FRAME,
+          and the initial IP is TARGET - FRAME.
+    
+       6.28 T-MODULE Record Format -- Comment Record (COMENT)
+    
+                       ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                       ³   ³Record³Comment³        ³Check³
+                       ³88H³Length³ Type  ³Comment ³ Sum ³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                       ³ 1 ³  2   ³  2    ³variable³  1  ³
+                       ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+         Comment Type: ÚÄÄÄÄÄÂÄÄÄÄÂÄÂÄÄÄÄÄ¿
+                       ³Purge³List³0³Class³
+                       ÃÄÄÄÄÄÅÄÄÄÄÅÄÅÄÄÄÄÄ´
+                       ³  1  ³ 1  ³6³  8  ³
+                       ÃÄÄÄÄÄÁÄÄÄÄÁÄÁÄÄÄÄÄ´
+                       ³       word       ³
+                       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+          Purge --
+             COMENT record should not be  deleted  by  utilities  which  can
+          delete comments (Purge=1).
+    
+          List --
+             COMENT record should not be listed by utilities which can  list
+          comments (LIST=1).
+    VAL Technical Notes                                              Page: 24
+
+
+       6.29 T-MODULE Record Format -- Comment Record (COMENT)
+    
+      ÚÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+      ³Class³                    Description                          ³
+      ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³ 129 ³Do not do a default library search.                      ³
+      ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³ 157 ³Memory model information is in the Comment field.        ³
+      ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³ 158 ³Use the "DOSSEG" ordering.                               ³
+      ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³ 159 ³Library name is in the Comment field.                    ³
+      ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³ 161 ³Codeview (trademark of Microsoft) information is present.³
+      ÃÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+      ³ 162 ³Pass 1 of linker can stop processing T-MODULE here.      ³
+      ÀÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+    
+       6.30 T-MODULE Record Format -- Communal Definition (COMDEF)
+    
+                ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                ³   ³      ³Symbol³Type ³Far or Near³ Communal ³Check³
+                ³B0H³Length³ NAME ³INDEX³ Communal  ³   Size   ³ Sum ³
+                ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                ³ 1 ³  2   ³ NAME ³INDEX³     1     ³ variable ³  1  ³
+                ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+          Symbol NAME --
+             This is the name of the communal symbol.  It is placed  in  the
+          list of external symbols just as if it were an EXTDEF record. If a
+          PUBDEF record  with  the  same  Symbol  NAME  is  encountered,  it
+          overrides the COMDEF.
+    
+          Type INDEX --
+             This is ignored.
+    
+          Far or Near Communal --
+             Far communals have a 61H coded here.  Near communals have a 62H
+          coded here.
+    
+          The ultimate size of the communal is the largest communal.
+    VAL Technical Notes                                              Page: 25
+
+
+       6.31 T-MODULE Record Format -- Communal Definition (COMDEF)
+    
+          For near communals, Communal Size is:  ÚÄÄÄÄÄ¿
+                                                 ³SIZE ³
+                                                 ³VALUE³
+                                                 ÃÄÄÄÄÄ´
+                                                 ³VALUE³
+                                                 ÀÄÄÄÄÄÙ
+    
+          For far communals, Communal Size is:   ÚÄÄÄÄÄÂÄÄÄÄÄ¿
+                                                 ³COUNT³SIZE ³
+              The size of the communal is:       ³VALUE³VALUE³
+                                                 ÃÄÄÄÄÄÅÄÄÄÄÄ´
+                COUNT VALUE * SIZE VALUE         ³VALUE³VALUE³
+                                                 ÀÄÄÄÄÄÁÄÄÄÄÄÙ
+    
+          Near communals go in DGROUP.  Far communals go in HUGE_BSS and are
+          packed as compactly as possible into PSEGs of no more than 64K.
+    
+       6.32 T-MODULE Record Format -- Forward Reference Fixups (FORREF)
+    
+                  ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                  ³   ³      ³Segment³    ³      ³ Fixup  ³Check³
+                  ³B2H³Length³ INDEX ³Size³Offset³ Data   ³ Sum ³
+                  ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                  ³ 1 ³  2   ³ INDEX ³ 1  ³  2   ³variable³  1  ³
+                  ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÅÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                                          ÀÄÄÄrepeatedÄÄÄÄÙ
+    
+          Segment INDEX --
+             The Forward Reference Fixup  is  to  be  applied  to  the  LSEG
+          element whose index into the SEGDEF list is Segment INDEX.
+    
+          Size --
+             This specifies the size of the Fixup  Data  fields.  The  Fixup
+          Data fields are a byte when Size = 0,  a word when Size = 1,  or a
+          DWORD when Size = 2.
+    
+          Offset --
+             This is the Offset into the LSEG  specified  by  Segment  Index
+          where the fixup is applied.
+    
+          Fixup Data --
+             This value is added at the specified Offset.
+    
+          Note:  The FORREF record may occur before  the  LE/LIDATA  records
+          which load data into the LSEG.  Therefore, FORREFs must be applied
+          at fixup time.
+    VAL Technical Notes                                              Page: 26
+
+
+       6.33 T-MODULE Record Format -- Local External Definition (MODEXT)
+    
+                 ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+                 ³   ³Record³External³Type ³Check³
+                 ³B4H³Length³  NAME  ³INDEX³ Sum ³
+                 ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+                 ³ 1 ³  2   ³  NAME  ³INDEX³  1  ³
+                 ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÁÄÄÄÄÄÅÄÄÄÄÄÙ
+                            ÀÄÄÄrepeatedÄÄÄÙ
+    
+          The fields of the MODEXT record  function  just  like  the  EXTDEF
+          record except that the external is local to  this  T-MODULE  only.
+          The External NAME is included in the list of externals.
+    
+       6.34 T-MODULE Record Format -- Local Public Definition (MODPUB)
+    
+                 ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿
+                 ³   ³Record³Group³Segment³FRAME ³Public³Public³Type ³Check³
+                 ³B6H³Length³INDEX³ INDEX ³NUMBER³ NAME ³Offset³INDEX³ Sum ³
+                 ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄ´
+                 ³ 1 ³  2   ³INDEX³ INDEX ³ 0-2  ³ NAME ³  2   ³INDEX³  1  ³
+                 ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÅÄÄÄÄÄÙ
+                                                 ÀÄÄÄÄÄrepeatedÄÄÄÄÄÄÙ
+    
+          The fields of the MODPUB record  function  just  like  the  PUBDEF
+          record except that the public symbol is  local  to  this  T-MODULE
+          only.
+    
+       6.35 T-MODULE Record Format -- Line Number (LINNUM)
+    
+                  ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                  ³   ³Record³          ³Check³
+                  ³94H³Length³   Data   ³ Sum ³
+                  ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                  ³ 1 ³  2   ³    1     ³  1  ³
+                  ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                             ÀÄrepeatedÄÙ
+    
+          The LINNUM record is ignored by the linker.
+    
+       6.36 T-MODULE Record Format -- Type Definition (TYPDEF)
+    
+                  ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄ¿
+                  ³   ³Record³          ³Check³
+                  ³8EH³Length³   Data   ³ Sum ³
+                  ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄ´
+                  ³ 1 ³  2   ³    1     ³  1  ³
+                  ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÙ
+                             ÀÄrepeatedÄÙ
+    
+          The TYPDEF record is ignored by the linker.
+    VAL Technical Notes                                              Page: 27
+
+
+       6.37 T-MODULE Record Format -- Record Order
+    
+          Object modules are parsed via recursive descent as defined below:
+    
+         t_module::     THEADR seg_grp {component} modtail
+    
+         seg_grp::      {LNAMES | SEGDEF | EXTDEF} {TYPDEF | EXTDEF | GRPDEF}
+    
+         component::    data | debug_record
+    
+         data::         content_def | thread_def | COMDEF | TYPDEF | PUBDEF |
+                        EXTDEF | FORREF | MODPUB | MODEXT
+    
+         debug_record:: LINNUM
+    
+         content_def::  data_record {FIXUPP}
+    
+         thread_def::   FIXUPP  (containing only thread fields)
+    
+         data_record::  LIDATA | LEDATA
+    
+         modtail::      MODEND
+    
+    7. Primary Internal Data Structure
+    
+      ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿           ÚÄÄÄÄÄÄÄÄÄ¿            ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+      ³ Segment #1 ÃÄÄÄÄÄÄÄÄÄÄ>³ LSEG #1 ÃÄÄÄÄÄÄÄÄÄÄÄ>³ LSEG #1 Contents ³
+      ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ           ÀÄÄÄÄÂÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+            ³                       ³
+            ³                       v
+            ³                  ÚÄÄÄÄÄÄÄÄÄ¿            ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+            ³                  ³ LSEG #2 ÃÄÄÄÄÄÄÄÄÄÄÄ>³ LSEG #2 Contents ³
+            ³                  ÀÄÄÄÄÂÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+            ³                       v
+            ³                      ///
+            v
+      ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿           ÚÄÄÄÄÄÄÄÄÄ¿            ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+      ³ Segment #2 ÃÄÄÄÄÄÄÄÄÄÄ>³ LSEG #1 ÃÄÄÄÄÄÄÄÄÄÄÄ>³ LSEG #1 Contents ³
+      ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ           ÀÄÄÄÄÂÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+            ³                       ³
+            ³                       v
+            ³                  ÚÄÄÄÄÄÄÄÄÄ¿            ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+            v                  ³ LSEG #2 ÃÄÄÄÄÄÄÄÄÄÄÄ>³ LSEG #2 Contents ³
+           ///                 ÀÄÄÄÄÂÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+                                    v
+                                   ///
+    VAL Technical Notes                                              Page: 28
+
+
+    8. Temp File
+    
+       The linker employs a temp file to save information which can only  be
+       processed  after  all  the  T-MODULEs  have   been   processed.   The
+       information which must be saved is:
+    
+          Fixups
+          LE/LIDATA for common LSEGS
+          FORREF records
+    
+       The temp file is deleted when processing is complete.
+    
+    9. Library File Format
+    
+      library_file::    header_page {t_modules} trailer_page {directory_pages}
+    
+      header_page ::   ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄ¿
+                       ³   ³Record³Directory³Directory³          ³ ³
+                       ³F0H³Length³ Offset  ³ Pages   ³   Pad    ³0³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄ´
+                       ³ 1 ³  2   ³   4     ³   2     ³    1     ³1³
+                       ÀÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÙ
+                                             (prime)  ÀÄrepeatedÄÙ
+    
+      t_modules ::     The t_modules are as described above except a pad is
+                       added after the MODEND record to make the t_module
+                       occupy a full page. The page size is the header_page
+                       Record Length + 3.
+    
+      trailer_page ::  ÚÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄ¿
+                       ³   ³Record³          ³ ³
+                       ³F1H³Length³   Pad    ³0³
+                       ÃÄÄÄÅÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄ´
+                       ³ 1 ³  2   ³    1     ³1³
+                       ÀÄÄÄÁÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÅÄÙ
+                                  ÀÄrepeatedÄÙ
+    VAL Technical Notes                                              Page: 29
+
+
+       9.1 Library File Format -- Directory
+    
+    directory_pages::  public_pointer_array {public_entry} pad
+    
+          Notes: A directory page is always 512 bytes.  A directory page can
+          contain up to 37 public entries.
+    
+          public_pointer_array --
+             This is a 38 byte  array  which  is  used  to  point  into  the
+          public_entry field.  To determine where public i is located in the
+          directory page,  take the ith  byte  of  the  public_pointer_array
+          (relative 0) and multiple it by 2. That byte will be the beginning
+          of the public_entry for ith public  in  the  directory.  The  38th
+          entry is used to point to the  beginning  of  the  free  space  in
+          directory page.
+    
+          public_entry ::  ÚÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿
+                           ³ Public³Starting³
+                           ³ NAME  ³  Page  ³
+                           ÃÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+                           ³ NAME  ³   2    ³
+                           ÀÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ
+    
+       9.2 Library File Format -- Finding a Public
+    
+          The library directory employs a two-tiered hashing scheme to store
+          public names in its  directory.  A  detailed  description  of  the
+          algorithm is given  later,  but  for  now  the  following  general
+          aspects of the algoritm are useful.  To start the search, you need
+          to know which directory page to start searching,  and if you don't
+          find it in that page, which directory page to search next. Once in
+          a directory page, you have to know which entry to use to begin the
+          search and which entry to search next if it was not found.
+    
+          We will call the four required values  STARTING_PAGE,  DELTA_PAGE,
+          STARTING_ENTRY,  and DELTA_ENTRY.  The detail on  how  to  compute
+          these values is give later.
+    
+          Start with directory page STARTING_PAGE.  On  that  page,  examine
+          public_entry STARTING_ENTRY. There are three cases.  This could be
+          the public symbol you desire,  in which case  you  are  done.  The
+          public_pointer_array for this entry could be zero,  in which  case
+          the symbol is not in the library.  Or,  this the public symbol  at
+          STARTING_ENTRY could be some other public symbol.  In  this  case,
+          add DELTA_ENTRY (modulo 37) to the STARTING_ENTRY and examine that
+          public entry.  Since there are at most 37 entries in any directory
+          page,  examine no more than 37 entries in any given page.  If  you
+          have tried all entries on a page,  proceed to  the  next  page  by
+          adding DELTA_PAGE  (modulo Directory_Pages)  to STARTING_PAGE  and
+          continue the process.  When you  move  to  a  new  page,  continue
+          processing the public entries where you left off.
+    VAL Technical Notes                                              Page: 30
+
+
+          To compute  the  STARTING_PAGE,  DELTA_PAGE,  STARTING_ENTRY,  and
+          DELTA_ENTRY,  view a NAME field as if it were an  array  of  bytes
+          containing the public name:
+    
+                            ÚÄÄÄÄÄÄÂÄÄÄÄÂÄÄÄÄÂÄÄÄÄÂÄ//ÄÂÄÄÄÄÄÄ¿
+                NAMEÄÄÄÄÄÄÄ>³Length³byte³byte³byte³    ³ byte ³
+                            ÃÄÄÄÄÄÄÅÄÄÄÄÅÄÄÄÄÅÄÄÄÄÅÄ//ÄÅÄÄÄÄÄÄ´
+                            ³  1   ³ 1  ³ 1  ³ 1  ³    ³  1   ³
+                            ÃÄÄÄÄÄÄÅÄÄÄÄÅÄÄÄÄÅÄÄÄÄÅÄ//ÄÅÄÄÄÄÄÄ´
+                indexÄÄÄÄÄÄ>³  0   ³ 1  ³ 2  ³ 3  ³    ³Length³
+                            ÀÄÄÄÄÄÄÁÄÄÄÄÁÄÄÄÄÁÄÄÄÄÁÄ//ÄÁÄÄÄÄÄÄÙ
+    
+          Then, the following code define the values:
+    
+      STARTING_PAGE, DELTA_PAGE, STARTING_ENTRY, DELTA_ENTRY = 0;
+    
+      for i = 0 .. Length-1
+        STARTING_PAGE=STARTING_PAGE+(NAME[i] or 20H) xor (<<STARTING_PAGE);
+        DELTA_PAGE=DELTA_PAGE+(NAME[Length-i+1] or 20H) xor (<<DELTA_PAGE);
+        STARTING_ENTRY=STARTING_ENTRY+(NAME[Length-i+1] or 20H)
+           xor (>>STARTING_ENTRY);
+        DELTA_ENTRY=DELTA_ENTRY+(NAME[i] or 20H) xor (>>DELTA_ENTRY);
+      end for;
+    
+      if DELTA_ENTRY == 0 then DELTA_ENTRY=1;
+      if DELTA_PAGE == 0 then DELTA_PAGE=1;
+          Note:  << is circular shift left twice and >>  is  circular  shift
+          right twice.
+
+
+
+                              VAL Technical Notes
+
+                               TABLE OF CONTENTS
+
+
+                                                                         Page
+
+     1. Linker Overview                                                     1
+
+
+     2. Comparison of Executable Files                                      1
+
+
+     3. Contents of Executable Files                                        2
+
+        3.1 Relocation Table                                                4
+        3.2 Load Module                                                     4
+
+     4. Terminology and Abbreviations                                       5
+
+
+     5. Fixup Overview                                                      5
+
+        5.1 LOCATION Types                                                  6
+        5.2 Fixup Modes                                                     6
+        5.3 Performing a Fixup                                              9
+        5.4 Self-Relative Fixups                                            9
+        5.5 Segment-Relative Fixups                                        10
+
+     6. T-MODULE Record Format Basics                                      10
+
+        6.1 T-MODULE Record Format -- Bit Fields                           11
+        6.2 T-MODULE Record Format -- INDEX Fields                         11
+        6.3 T-MODULE Record Format -- NAME Fields                          11
+        6.4 T-MODULE Record Format -- VALUE Fields                         12
+        6.5 T-MODULE Record Format -- T-MODULE Header                      12
+        6.6 T-MODULE Record Format -- List of NAMEs (LNAMEs)               12
+        6.7 T-MODULE Record Format -- LSEG Definition (SEGDEF)             13
+        6.8 T-MODULE Record Format -- SEGDEF.ACBP.A                        13
+        6.9 T-MODULE Record Format -- SEGDEF.ACBP.C                        14
+        6.10 T-MODULE Record Format -- Notes on Combining                  14
+        6.11 T-MODULE Record Format -- LSEG Definition (SEGDEF)            15
+        6.12 T-MODULE Record Format -- Group Definition (GRPDEF)           15
+        6.13 T-MODULE Record Format -- Public Definition (PUBDEF)          16
+        6.14 T-MODULE Record Format -- Public Definition (PUBDEF)          16
+        6.15 T-MODULE Record Format -- Public Definition (EXTDEF)          17
+        6.16 T-MODULE Record Format -- Logical Enumerated Data (LEDATA)    17
+        6.17 T-MODULE Record Format -- Logical Iterated Data (LIDATA)      18
+        6.18 T-MODULE Record Format -- Logical Iterated Data (LIDATA)      18
+        6.19 T-MODULE Record Format -- Fixup Record (FIXUPP)               19
+        6.20 T-MODULE Record Format -- Thread                              19
+        6.21 T-MODULE Record Format -- Fixup                               20
+        6.22 T-MODULE Record Format -- Fixup                               20
+        6.23 T-MODULE Record Format -- Fixup                               21
+
+    VAL Technical Notes                                    Table of Contents
+
+                                                                         Page
+        6.24 T-MODULE Record Format -- Fixup                               21
+        6.25 T-MODULE Record Format -- Fixup                               22
+        6.26 T-MODULE Record Format -- T-MODULE End (MODEND)               22
+        6.27 T-MODULE Record Format -- T-MODULE End (MODEND)               23
+        6.28 T-MODULE Record Format -- Comment Record (COMENT)             23
+        6.29 T-MODULE Record Format -- Comment Record (COMENT)             24
+        6.30 T-MODULE Record Format -- Communal Definition (COMDEF)        24
+        6.31 T-MODULE Record Format -- Communal Definition (COMDEF)        25
+        6.32 T-MODULE Record Format -- Forward Reference Fixups (FORREF)   25
+        6.33 T-MODULE Record Format -- Local External Definition (MODEXT)  26
+        6.34 T-MODULE Record Format -- Local Public Definition (MODPUB)    26
+        6.35 T-MODULE Record Format -- Line Number (LINNUM)                26
+        6.36 T-MODULE Record Format -- Type Definition (TYPDEF)            26
+        6.37 T-MODULE Record Format -- Record Order                        27
+
+     7. Primary Internal Data Structure                                    27
+
+
+     8. Temp File                                                          28
+
+
+     9. Library File Format                                                28
+
+        9.1 Library File Format -- Directory                               29
+        9.2 Library File Format -- Finding a Public                        29

@@ -1,0 +1,81 @@
+                          Small Tools User Notes
+
+COPYRIGHT NOTICES
+
+Copyright 1982 J. E. Hendrix
+All rights reserved.
+
+
+VERSION 
+
+This diskette contains version 1.2 (revision level 33) of the Small Tools 
+programs as implemented under PC/MS-DOS 2.1 (and later versions) by James 
+E. Hendrix. 
+
+
+PREREQUISITES
+
+These programs are supplied as source code for use with the Small C 
+compiler version 2.1. You will also need a copy of the standard 8086/88 
+assembler and the standard linker. 
+
+
+METACHARACTERS
+
+The choice of metacharacters for for beginning-of-line and end-of-line, 
+the grave (`) and apostrophe (') respectively, reported  in  the Small
+Tools  User's  Manual  has  been  changed for the MS/PC-DOS 
+implementation. When DOS encounters a grave (`) in a command line, it 
+breaks the line into separate commands; therefore, any command containing 
+a text pattern with that character will be messed up by DOS. 
+
+This implementation uses the quotation mark (") for beginning-of-line. As 
+the manual points out this is recognized as a metacharacter only if it 
+appears first in a text pattern. If it must be taken as an ordinary 
+character in that position, then escape it with a colon (:). 
+
+If you prefer different metacharacter assignments, the UNIX assignments for 
+instance, you may change the define commands in the file TOOLS.H before 
+you start compiling. 
+
+
+ANSI.SYS
+
+The text editor EDT and the printer font selector FNT use the sequence 
+ESC,[,2,J to clear the screen, so it is necessary to invoke the screen 
+driver ANSI.SYS if they are going to be used. This is done by placing the 
+line "DEVICE=ANSI.SYS" in the file CONFIG.SYS. 
+
+
+REVISIONS TO FMT
+
+Since the manual was printed, eight new switches have been added to the 
+text formatter. Each switch overrides a default assumption by the 
+formatter. The switches are: 
+
+    -NPB     no page breaks
+    -NPF     no page headings
+    -NPF     no page footers
+    -LM#     left margin
+    -RM#     right margin
+    -NF      no fill
+    -NJ      no justification
+    -A       ascii mode
+
+The bold face command (.bf) no longer bolds the following punctuation 
+marks.
+
+    (        left parenthesis
+    )        right parenthesis
+    ?        question mark
+    :        colon
+    ;        semicolon
+    ,        comma
+
+This change was to allow these punctuation marks to be written adjacent to 
+bolded words.  A new command
+
+    .cb      continuous bold
+
+now bolds everything like .bf used to do.
+
