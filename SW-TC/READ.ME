@@ -1,0 +1,322 @@
+============== Small-Windows Distribution Diskette Notes =================
+
+
+VERSION:
+
+This diskette contains version 1.1 (revision level 18) of the Small-
+Windows library by Jim Hendrix.  Documentation for this package can be 
+obtained from M&T Books by calling 1-800-533-4372 (1-800-356-2002 in
+California).  
+
+
+COMPILER:
+
+This package was developed for use with the Turbo C compiler (any version).
+
+
+COPYRIGHT NOTICE:
+
+                   Copyright 1987, J. E. Hendrix
+
+Small-Windows is not in the public domain; it is copyrighted material and 
+all rights are reserved by the author.  Nevertheless, you may share copies 
+of the Small-Windows diskette with others provided you retain the internal 
+and external copyright notices and DO NOT CHARGE A FEE.  Furthermore, you 
+may include Small-Windows object modules in commercial software products 
+without paying royalties.  But the source code -- whether original or 
+modified, complete or partial -- may not be distributed commerically 
+without prior written permission from the author.  Neither may you copy the 
+manual or put Small-Windows on public bulletin boards without prior written 
+permission.  
+
+
+CORRESPONDENCE:
+
+I have made every reasonable effort to ensure that these functions work 
+properly.  However, if you discover an error, or have ideas for 
+improvements, please write to: 
+
+                        Jim Hendrix
+                        P.O. Box 1435
+                        Oxford, MS  38655
+
+Any correspondence requiring a reply must include a large self-addressed, 
+stamped envelope.  
+
+
+DISCLAIMER:
+
+This software carries no warranty, either written or implied, regarding its 
+performance or suitability to any particular task.  Neither the author nor 
+the distributor accept any responsibility for losses which might derive 
+from its use.  
+
+
+NOTES:
+
+ 1. Four libraries are included in this implementation of Small-Windows.  
+They are: 
+
+           LIBRARY        MEMORY         CORRESPONDING
+           NAME           MODEL          TC LIBRARY
+
+           SWS.LIB        small          CS.LIB
+           SWC.LIB        compact        CC.LIB
+           SWM.LIB        medium         CM.LIB
+           SWL.LIB        large          CL.LIB
+
+The tiny and huge memory models are not supported.
+
+When linking Small-Windows programs, the appropriate SW library must be 
+named to the linker prior to the standard Turbo C library.  Under IDE just
+name the appropriate SW library as a user library.  Alternatively, you 
+could combine the contents of each Small-Windows library with its 
+corresponding Turbo C library, making it unnecessary to do anything special 
+at link time.  For example, the command 
+
+                   C>LIB CS.LIB +SWS.LIB ;
+
+would add the contents of the Small-Windows small-model library to the 
+standard Turbo C small-model library.  
+
+
+ 2. This implementation of Small-Windows contains a header file (SW.H) 
+which declares all of the library functions.  You should include this file 
+into all of your Small-Windows programs.  It will enforce type checking of 
+arguments passed to all functions except wprintf() and wscanf().
+
+Another header file (WINDOW.H) is in the source archive (SW.ARC); this 
+file, however, is for use only when compiling the window functions 
+themselves.  
+
+
+ 3. This implementation of Small-Windows allocates all of its buffers 
+(window and background) in FAR memory.  This means that the default data 
+segment will never be encroached upon by buffers, regardless of how many 
+you have or their sizes.  This is an obvious plus for small and medium 
+model programs, since buffer space can add up rather quickly.  
+
+
+ 4. Turbo C automatically determines default pointer sizes according to 
+the chosen standard memory model.  For example, data pointers for the small 
+and medium models are NEAR pointers, while those for the compact and large 
+models are FAR pointers.  Likewise, function pointers for the small and 
+compact models are NEAR pointers, while those for the medium and large 
+models are FAR pointers.  
+
+With the exception of wpoint() the Small-Windows functions which accept 
+pointers and those which return pointers work strictly with the default 
+pointer sizes.  Wpoint(), however, always returns a FAR pointer regardless 
+of the memory model in use.  This is because window and background buffers 
+are always in FAR memory.  
+
+
+ 5. The Turbo C compiler has the option of generating stack probing logic at 
+the entrance to each function.  This verifies that the stack has not yet 
+overflowed.  This feature must be requested, however.  
+
+Since the Turbo C documentation indicates a heavy penalty associated with 
+its use, the Small-Windows libraries on the distribution diskette were 
+compiled without this safety feature.  If you should wish to change this, 
+you may build your own libraries by compiling with the stack probe feature 
+enabled.  Note that the assembly language functions in the library do not 
+perform stack probing, in any case.  You could change that too by 
+duplicating the code generated by tcc.  
+
+
+ 6. The following batch files are included in this implementation of Small-
+Windows to assist you in assembling and compiling the various modules which 
+make up the libraries: 
+
+                 ALIB.BAT      assemble to library
+                 CLIB.BAT      compile to library
+
+Each file contains the commands that compile or assemble one module and put 
+it in the appropriate library, replacing the old one (if present).  If the 
+module was not in the library, LIB gripes but adds the new module anyway.  
+If the library did not exist it creates one on the fly.  
+
+Be sure to study these files before you assemble or compile any Small-
+Windows modules.  Especially notice that the /D switch must be used with 
+the assembler to define symbols for conditional assembly.  To invoke either 
+of these batch files, just enter its name followed by a letter designating 
+the memory model and the filename (without extension) of the pertinent 
+source file.  For example, to compile WKERNEL.C and place the resulting 
+object module in the small-model library, you would enter: 
+
+                 C>CLIB S WKERNEL
+
+
+ 7. The Small-Windows User's Manual provides an accurate functional 
+description of the Small-Windows library for every compiler for which it 
+has been implemented.  Nevertheless, each implementation has its unique 
+characteristics.  The following items list the differences from the manual 
+for the Turbo C implementation: 
+
+    a. Most of the source files for the video level functions have
+       filename extensions of .ASM instead of .C as shown in Appendix B.
+       The exceptions are VMODE.C and VPOINT.C which are written in C
+       instead of assembly language.
+
+       Two additional video-level files are VMODE2.ASM and VPOINT2.ASM.
+       These contain assembly language routines called from VMODE.C and
+       VPOINT.C respectively.
+
+    b. The file FILES2.ASM contains assembly language routines which
+       were originally a part of FILES.C.
+
+    d. The following functions have been included in this library :
+
+
+       - itoab(n, s, b)  unsigned n; char *s; int b;
+
+         This function converts the unsigned integer (n) to an ASCII
+         string (s) in the designated base (b).  It resides in ITOAB.C.
+
+
+       - itou(n, s, l)  unsigned n; char s[]; int l;
+
+         This function converts the integer (n) to an unsigned decimal
+         string of length (l), right adjusted and blank filled.  It
+         returns (s) to the caller.  If l > 0 it terminates its output
+         with null byte.  If l = 0 it finds the end of s by searching
+         for a null byte.  And if l < 0 it uses the last byte in s (as
+         indicated by l) for its output.  It resides in ITOU.C.
+
+
+       - ltou(n, s, l)  unsigned long n; char *s; int l;
+
+         This function converts the double precision integer (n) to an 
+         unsigned decimal string of length (l), right adjusted and blank 
+         filled.  It returns (s) to the caller.  If l > 0 it terminates its 
+         output with null byte.  If l = 0 it finds the end of s by 
+         searching for a null byte.  And if l < 0 it uses the last byte in 
+         s (as indicated by l) for its output.  It resides in LTOU.C.  
+
+
+       - poll(p) int p;
+
+         This function polls the keyboard for input.  If (p) is true, poll()
+         recognizes control-S and control-C characters as requests to pause
+         and cancel program execution respectively.  Execution is resumed
+         after a pause by striking any key, in which case poll() returns
+         zero to the caller.
+
+         If there is no keystroke pending when poll() is called, it returns 
+         zero to the caller.  If a keystroke is waiting it is returned to 
+         the caller.  Special keys are reported according to the scheme 
+         described below for _getkey().  
+
+         Poll() resides in POLL.C.
+
+
+       - utoi(s, n)  char *s; int *n;
+
+         This function converts the unsigned decimal string (s) to an
+         integer stored at (n).  It returns the field size on success,
+         otherwise it returns -2 to indicate an error.  It resides in UTOI.C.
+
+       - _pad(b, l, v) char far *b; int l; char v;
+
+         This function pads the far buffer at (b) with the byte value (v).
+         the buffer is (l) bytes long.  _pad() resides in PAD.ASM.
+
+
+       - _getkey()
+
+         This function returns the next keystroke to the caller, waiting
+         if necessary until a key is struck.  Special keys are represented
+         by adding 113 to their auxiliary codes placing them in the range
+         128-245.
+
+         The following table lists the special keys and the values they
+         produce:
+
+         KEYSTROKE           VALUE       KEYSTROKE             VALUE
+
+         ctrl_2 (or ctrl_@)  0           Insert                195
+         shift_tab           128         Delete                196
+         alt_QWERTYUIOP      129-138     shift_F1 - shift_F10  197-206
+         alt_ASDFGHJKL       143-151     ctrl_F1  - ctrl_F10   207-216
+         alt_ZXCVBNM         157-163     alt_F1   - alt_F10    217-226
+         F1 - F10            172-181     ctrl_PrtSc            227
+         Home                184         ctrl_left arrow       228
+         up arrow            185         ctrl_right arrow      229
+         PgUp                186         ctrl_End              230
+         left arrow          188         ctrl_Home             232
+         right arrow         190         alt_1    - alt_0      233-242
+         End                 192         alt_hyphen            243
+         down arrow          193         alt_equal             244
+         PgDn                194         ctrl_PgUp             245
+
+         Since poll() calls _getkey() and several Small-Windows functions 
+         call poll(), you will see these numbers here and there in the 
+         code.  
+
+         This function resides in GETKEY.ASM.  It calls the BIOS through
+         interrupt 16.
+
+
+       - _hitkey()
+
+         This function returns true if keyboard input is pending,
+         otherwise it returns false. This function resides in HITKEY.ASM.
+         It calls the BIOS through interrupt 16.
+
+
+    e. The function mpick() accepts three arguments -- the menu number, a
+       pointer to an array of string pointers which specify the menu items,
+       and an integer giving the array length.  The array pointer may have 
+       a value of zero, meaning that the menu has already been filled.  The
+       proper way to specify this value is
+
+                    mpick(menu, (char **) 0, len);
+       
+
+    f. The function wprintf() is based on the Small-C printf() function
+       and so lacks some of the specifications that you may need.  In that
+       case, you may use the Turbo C sprintf() to build your formatted
+       text in a buffer, then call wstr() or wstra() to write it to the
+       active window.  Of course, you could encapsulate this sequence in
+       a single function, making it just as easy to use as wprintf().  
+
+ 8. With revision 16, the programmer is given control over the window 
+defaults that are effective at wopen() time.  Windows may be opened in
+either hidden or seen status, the default video attribute may be set to
+any value, and the default cursor size may be set.  Four new functions
+have been defined:
+
+    wdatt(attr)     open windows with video attribute attr
+    wdcursor(sz)    open windows with cursor size sz (fourths)
+    wdhide()        open windows with hidden status
+    wdshow()        open windows with seen status (the default default)
+
+Heretofore, when opening a series of windows at one time, since windows
+defaulted to the seen status, the cursor would be seen hopping around on
+the screen.  This distraction can now be controlled two ways.  First,
+after wdcursor(0), the cursor becomes invisible when a window is opened 
+and remains invisible for the new window until changed by wcursor(). 
+Second, after wdhide(), the cursor remains as is when a window is opened.  
+If both wdcursor() and wdhide() have been called, both defaults are 
+effective, but cursor action at wopen() time is determined by the hidden 
+status -- it remains as is. 
+
+Menus are always opened with the hidden status, so there is no need to
+call wdhide() before opening menus in order to avoid having the cursor
+hop to the menu location on the screen.  Prior to revision 16, the cursor
+would seek the menu location between the time mopen() opened the menu's
+window and the time it hid it.  With revision 16, however, menu windows 
+are opened with the hidden status automatically. 
+
+
+ 9. This note is given to help clarify the wpush() and wpop() operations. 
+The window stack does NOT hold window buffers; it only holds the numbers 
+of previously acitvated windows.  It is simply a built-in bookkeeping 
+device to help you obey the activation rules.  Each window can have at 
+most ONE window buffer for window data and ONE background buffer for 
+background data.  Pushing the same window onto the stack more than once 
+will NOT cause the buffer contents for the earlier activation to be 
+preserved.  Except as noted in the manual (Section 2.8 -- Stacking Windows) 
+you should avoid pushing more than one occurrence of a given window onto 
+the stack at one time. 
+

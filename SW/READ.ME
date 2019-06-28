@@ -1,0 +1,114 @@
+============== Small-Windows Distribution Diskette Notes =================
+
+
+VERSION:
+
+This diskette contains version 1.1 (revision level 18) of the Small-Windows 
+library by Jim Hendrix.  Documentation for this package can be obtained from 
+M&T Books by calling 1-800-533-4372 (1-800-356-2002 in California).  
+
+
+COMPILER: 
+
+This package was developed for use with the Small-C compiler (2.1 or later) as 
+implemented by Jim Hendrix.  
+
+
+COPYRIGHT NOTICE: 
+
+                   Copyright 1987, J. E. Hendrix
+
+Small-Windows is not in the public domain; it is copyrighted material and 
+all rights are reserved by the author.  Nevertheless, you may share copies 
+of the Small-Windows diskette with others provided you retain the internal 
+and external copyright notices and DO NOT CHARGE A FEE.  Furthermore, you 
+may include Small-Windows object modules in commercial software products 
+without paying royalties.  But, the source code -- whether original or 
+modified, complete or partial -- may not be distributed commerically without 
+prior written permission.  
+
+You may NOT, however, copy the manual or put Small-Windows on public bulletin 
+boards without prior written permission.  
+
+
+CORRESPONDENCE:
+
+I have made every reasonable effort to ensure that these functions work 
+properly.  However, if you discover an error, or have ideas for improvements, 
+please write to me at: 
+
+                        P.O. Box 1435
+                        Oxford, MS  38655
+
+Any correspondence requiring a reply must include a large self-addressed,
+stamped envelope.
+
+
+DISCLAIMER:
+
+This software carries no warranty, either written or implied, regarding its
+performance or suitability to any particular task.  Neither the author nor
+the distributor accept any responsibility for losses which might derive
+from its use.  
+
+
+NOTES:
+
+ 1. This version of Small-Windows does not require that any special header 
+file be included in your programs.  The file WINDOW.H has been moved into 
+the archive SW.ARC since it is used only when compiling the window 
+functions themselves.  
+
+
+ 2. In the original release of revision level 8, the module WPUTSA in the 
+library SW.LIB was entered with its name in lower case instead of upper 
+case like the other modules.  This had no effect when linking WPUTSA.  
+However, some library managers (excluding the more recent versions of 
+Microsoft LIB) appear to be case sensitive making "wputsa" hard to find 
+when "WPUTSA" is being sought.  This was corrected with a second release
+of revision 8.
+
+
+ 3. The following undocumented functions have been defined:
+
+    wdatt(attr)     open windows with video attribute attr
+    wdcursor(sz)    open windows with cursor size sz (fourths)
+    wdhide()        open windows with hidden status
+    wdshow()        open windows with seen status (the default default)
+
+The second letter of each name (d) stands for the word "default." The purpose 
+of these functions is to give the programmer control over wopen() defaults -- 
+primarily, control over cursor activity while opening windows.  For example, 
+after wdcursor(0), the cursor becomes invisible when a window is opened and 
+remains invisible for the window until changed by wcursor(). After wdhide(), 
+the cursor remains as is when a window is opened.  If both wdcursor() and 
+wdhide() are called, both defaults are active, but cursor action at wopen() 
+time is determined by the hidden status -- it remains as is. 
+
+
+ 4. This note is given to help clarify the wpush() and wpop() operations. 
+The window stack does NOT hold window buffers; it only holds the numbers 
+of previously acitvated windows.  It is simply a built-in bookkeeping 
+device to help you obey the activation rules.  Each window can have at 
+most ONE window buffer for window data and ONE background buffer for 
+background data.  Pushing the same window onto the stack more than once 
+will NOT cause the buffer contents for the earlier activation to be 
+preserved.  Except as noted in the manual (Section 2.8 -- Stacking Windows) 
+you should avoid pushing more than one occurrence of a given window onto 
+the stack at one time. 
+
+
+ 5. Revision 17 corrected a conflict in the use of the ES register by the 
+Small Windows video functions and strlen() after its modification by Small C 
+revision 110. The Small Windows functions that move data to and from video 
+memory -- vatt(), vchr(), vchra(), vshow(), vstow(), vstr(), and vstra() -- 
+make use of the ES register to point to the correct video buffer.  Since, at 
+the time Small Windows was written, ES was not used by Small C, it was not 
+restored to its previous value.  However, when revision 110 was installed, to 
+speed up the function strlen() by using the SCASB instruction, strlen() 
+expected ES to be set the same as DS.  But, if strlen() was called after 
+calling any of the video functions above, then it would return the length of a 
+string in a video buffer rather than the intended string in the data segment.  
+Thus, any Small C program that used strlen() together with Small Windows could 
+be expected to malfunction because of strlen()'s tendency to lie. 
+

@@ -1,0 +1,15 @@
+
+ Start  Stop   Length Name               Class
+
+ 00000H 03B2AH 03B2BH _TEXT              CODE
+ 03B30H 04301H 007D2H _DATA              DATA
+ 04302H 04305H 00004H _EMUSEG            DATA
+ 04306H 04307H 00002H _CRTSEG            DATA
+ 04308H 04308H 00000H _CVTSEG            DATA
+ 04308H 04308H 00000H _SCNSEG            DATA
+ 04308H 04443H 0013CH _BSS               BSS
+ 04444H 04444H 00000H _BSSEND            BSSEND
+ 04450H 044CFH 00080H _STACK             STACK
+
+Program entry point at 0000:0000
+
