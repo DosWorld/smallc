@@ -18,6 +18,8 @@ SW-TC - Small Windows 1.1 (rev level 18) for Turbo C (any version)
 
 Assembler, C and VAL could be used together.
 
+MAKE tool for Small-C available from https://github.com/DosWorld/smallmake
+
 # License
 
 I am not a author of this source code. This is collection of public-domain sources.
