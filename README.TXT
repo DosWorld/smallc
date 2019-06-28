@@ -11,6 +11,9 @@ C - Small C 2.2 (rev level 117)
 TOOLS - Small Tools 1.2 (rev level 33)
 VAL - Linker release in public domain at SDC'89
 
+SW - Small Windows 1.1 (rev level 18) for Small C
+SW-TC - Small Windows 1.1 (rev level 18) for Turbo C (any version)
+
 Assembler, C and VAL could be used together.
 
 # License
