@@ -1,4 +1,4 @@
-# SmallC repository
+# Small C repository
 
 Collected at one place for historic purposes.
 
