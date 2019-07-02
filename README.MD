@@ -1,9 +1,5 @@
 # SmallC repository
 
-Hi!
-
-I am not a author of this source code.
-This is collection of public-domain sources for Small C.
 Collected at one place for historic purposes.
 
 This is original untouched source code.
@@ -24,7 +20,7 @@ MAKE tool for Small-C available from https://github.com/DosWorld/smallmake
 
 I am not a author of this source code. This is collection of public-domain sources.
 
-== Small C, Small Assembler, Small Tools and Small Windows
+## Small C, Small Assembler, Small Tools and Small Windows
 
 Notice of Public Domain Status
 
