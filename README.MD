@@ -60,6 +60,6 @@ Mariano "Val" Valentino.  The only request the author makes for
 using the program is that the program name be left as "VAL" in his
 memory.
 
-David Troendle
-New Orleans, LA
-February 10, 1989
+    David Troendle
+    New Orleans, LA
+    February 10, 1989
