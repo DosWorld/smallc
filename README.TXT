@@ -23,3 +23,13 @@ MAKE tool for Small-C available from https://github.com/DosWorld/smallmake
 # License
 
 I am not a author of this source code. This is collection of public-domain sources.
+
+== Small C, Small Assembler, Small Tools and Small Windows
+
+Notice of Public Domain Status
+
+The source code for the Small-C Compiler and runtime libraries (CP/M & DOS), Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and Small-Windows library to which I hold copyrights are hereby available for royalty free use in private or commerical endeavors. The only obligation being that the users retain the original copyright notices and credit all prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+
+James E. Hendrix Jr.
+
+http://www.deturbulator.org/Jim.asp
