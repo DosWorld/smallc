@@ -17,7 +17,7 @@ MAKE tool for Small-C available from https://github.com/DosWorld/smallmake
 
 # License
 
-I am not a author of this source codes.
+I am not a author of this source codes and nothing is contributed by me. Here is original Licenses for each project:
 
 ## Small C, Small Assembler, Small Tools and Small Windows
 
