@@ -2,7 +2,7 @@
 
 Collected at one place for historic purposes.
 
-This is original untouched source code.
+This is original untouched source code (with the possible exception of any added errata.txt files).
 
 * ASM - Small Assembler 1.2 (rev level 14)
 * C - Small C 2.2 (rev level 117)
@@ -11,9 +11,15 @@ This is original untouched source code.
 * SW - Small Windows 1.1 (rev level 18) for Small C
 * SW-TC - Small Windows 1.1 (rev level 18) for Turbo C (any version)
 
-Assembler, C and VAL could be used together.
+Assembler, C and VAL can be used together.
 
 MAKE tool for Small-C available from https://github.com/DosWorld/smallmake
+
+Note: VAL and SW-TC sources are written for the Turbo-C compiler, available
+here - https://edn.embarcadero.com/museum/antiquesoftware
+
+The Turbo-C package includes tlink (which can be used instead of VAL)
+and tlib (which can be used to (re)build clib.lib and asm.lib).
 
 # License
 
